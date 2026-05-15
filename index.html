@@ -1,0 +1,180 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>NBA Logo Battle</title>
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+  <div class="app-shell">
+    <header class="topbar">
+      <div>
+        <h1>NBA Logo Battle</h1>
+        <p class="subtitle">Local 1v1 logo battles. Upload, vote, rank, backup.</p>
+      </div>
+      <div id="saveStatus" class="save-status" aria-live="polite">Ready</div>
+    </header>
+
+    <nav class="tabs" aria-label="App sections">
+      <button class="tab-btn active" data-tab="battle">Battle</button>
+      <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+      <button class="tab-btn" data-tab="manage">Manage Logos</button>
+      <button class="tab-btn" data-tab="backup">Import/Export</button>
+      <button class="tab-btn" data-tab="settings">Settings</button>
+    </nav>
+
+    <main>
+      <section id="battle" class="tab-panel active">
+        <div id="battleEmpty" class="empty-state hidden">
+          <h2>No logos yet</h2>
+          <p>Upload a batch of NBA/ABA logos to start battling.</p>
+          <label class="primary-btn file-btn">
+            Upload Logos
+            <input id="emptyUploadInput" type="file" accept="image/*" multiple />
+          </label>
+        </div>
+
+        <div id="battleReady" class="battle-wrap hidden">
+          <div class="battle-toolbar card">
+            <div>
+              <strong>Pick your favorite logo</strong>
+              <p>Any active logo can face any other active logo.</p>
+            </div>
+            <div class="toolbar-actions">
+              <button id="skipBtn" class="ghost-btn">Skip</button>
+              <button id="undoBtn" class="ghost-btn" disabled>Undo Last Vote</button>
+            </div>
+          </div>
+
+          <div id="battleCards" class="battle-grid" aria-live="polite"></div>
+        </div>
+      </section>
+
+      <section id="leaderboard" class="tab-panel">
+        <div class="stats-grid" id="globalStats"></div>
+
+        <div class="card controls-row">
+          <input id="leaderboardSearch" class="input" type="search" placeholder="Search logos or franchises..." />
+          <select id="leaderboardFranchise" class="input"></select>
+        </div>
+
+        <div class="card table-card">
+          <div class="table-scroll">
+            <table class="leaderboard-table">
+              <thead>
+                <tr>
+                  <th>Rank</th>
+                  <th></th>
+                  <th>Logo</th>
+                  <th>Franchise</th>
+                  <th>Record</th>
+                  <th>Win %</th>
+                  <th>Battles</th>
+                </tr>
+              </thead>
+              <tbody id="leaderboardBody"></tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+
+      <section id="manage" class="tab-panel">
+        <div id="dropZone" class="drop-zone">
+          <h2>Upload logos</h2>
+          <p>Drag and drop image files here, or use the upload button. Images resize to max 800px.</p>
+          <label class="primary-btn file-btn">
+            Upload Logo Batch
+            <input id="uploadInput" type="file" accept="image/*" multiple />
+          </label>
+          <div id="uploadProgress" class="progress hidden">
+            <div class="progress-text">Processing...</div>
+            <div class="progress-bar"><span></span></div>
+          </div>
+        </div>
+
+        <div class="card controls-row">
+          <input id="manageSearch" class="input" type="search" placeholder="Search active logos..." />
+          <select id="manageFranchise" class="input"></select>
+          <button id="showRetiredBtn" class="ghost-btn">Retired Archive</button>
+        </div>
+
+        <div id="logoGrid" class="logo-grid"></div>
+      </section>
+
+      <section id="backup" class="tab-panel">
+        <div class="two-col">
+          <div class="card stack">
+            <h2>Export Backup</h2>
+            <p>Exports one complete file containing logos, images, stats, franchises, retired items, and settings.</p>
+            <button id="exportBtn" class="primary-btn">Export Full Backup</button>
+          </div>
+          <div class="card stack">
+            <h2>Import Backup</h2>
+            <p>Importing replaces the current app data entirely. Export a backup first if you care about current data.</p>
+            <label class="danger-btn file-btn">
+              Import Full Backup
+              <input id="importInput" type="file" accept="application/json,.json" />
+            </label>
+          </div>
+        </div>
+      </section>
+
+      <section id="settings" class="tab-panel">
+        <div class="card stack">
+          <h2>Settings</h2>
+          <p>The app always opens to Battle and quietly autosaves. Big actions show a small saved status.</p>
+        </div>
+        <div class="card stack danger-zone">
+          <h2>Danger Zone</h2>
+          <p>Reset all active and retired logo stats back to 0–0. Images and franchises stay saved.</p>
+          <button id="resetAllStatsBtn" class="danger-btn">Reset All Stats</button>
+        </div>
+      </section>
+    </main>
+  </div>
+
+  <dialog id="editDialog" class="modal">
+    <form method="dialog" class="modal-card" id="editForm">
+      <h2>Edit Logo</h2>
+      <input type="hidden" id="editLogoId" />
+      <label>
+        Logo name
+        <input id="editName" class="input" required />
+      </label>
+      <label>
+        Franchise
+        <input id="editFranchise" class="input" required />
+      </label>
+      <div class="modal-actions">
+        <button type="button" id="cancelEditBtn" class="ghost-btn">Cancel</button>
+        <button type="submit" class="primary-btn">Save</button>
+      </div>
+    </form>
+  </dialog>
+
+  <dialog id="retiredDialog" class="modal">
+    <div class="modal-card wide-modal">
+      <div class="modal-header">
+        <h2>Retired Archive</h2>
+        <button id="closeRetiredBtn" class="ghost-btn">Close</button>
+      </div>
+      <p>Retired logos are excluded from battles, active views, and leaderboards. Restore any logo here.</p>
+      <div id="retiredGrid" class="logo-grid compact"></div>
+    </div>
+  </dialog>
+
+  <template id="battleCardTemplate">
+    <button class="battle-card card" type="button">
+      <div class="logo-frame large"><img alt="" /></div>
+      <div class="battle-info">
+        <h2></h2>
+        <p class="franchise"></p>
+        <p class="record"></p>
+      </div>
+    </button>
+  </template>
+
+  <script src="app.js"></script>
+</body>
+</html>
