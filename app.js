@@ -603,17 +603,78 @@
     const actions = $('.logo-actions', card);
 
     if (retiredView) {
-      const restore = button('Restore', 'primary-btn full', () => restoreLogo(logo.id));
-      actions.append(restore);
+      actions.append(
+        button('Replace Image', 'ghost-btn full', () => promptReplaceImage(logo.id)),
+        button('Restore', 'primary-btn full', () => restoreLogo(logo.id)),
+      );
       return card;
     }
 
     actions.append(
       button('Edit', 'ghost-btn', () => openEdit(logo)),
+      button('Replace Image', 'ghost-btn', () => promptReplaceImage(logo.id)),
       button('Retire', 'ghost-btn', () => retireLogo(logo.id)),
       button('Reset Stats', 'danger-btn full', () => resetLogoStats(logo.id)),
     );
     return card;
+  }
+
+  function promptReplaceImage(logoId) {
+    const picker = document.createElement('input');
+    picker.type = 'file';
+    picker.accept = 'image/*';
+    picker.addEventListener('change', async () => {
+      const file = picker.files?.[0];
+      if (!file) return;
+      await replaceLogoImage(logoId, file);
+    }, { once: true });
+    picker.click();
+  }
+
+  async function replaceLogoImage(logoId, file) {
+    if (!file || !file.type.startsWith('image/')) {
+      alert('Please select an image file.');
+      return;
+    }
+
+    const logo = state.logos.find(l => l.id === logoId);
+    if (!logo) {
+      alert('Logo not found.');
+      return;
+    }
+
+    try {
+      const resized = await resizeImage(file);
+      const duplicate = state.logos.find(l => l.imageHash && l.imageHash === resized.hash);
+      if (duplicate && duplicate.id !== logoId) {
+        const ok = confirm('This image appears to match another logo already in the app. Replace anyway?');
+        if (!ok) return;
+      } else if (duplicate && duplicate.id === logoId) {
+        const sameOk = confirm('This appears to be the same image. Replace anyway?');
+        if (!sameOk) return;
+      }
+
+      const updatedLogo = {
+        ...logo,
+        imageDataUrl: resized.dataUrl,
+        imageHash: resized.hash,
+        mimeType: resized.mimeType,
+        width: resized.width,
+        height: resized.height,
+        compressedSize: resized.size,
+        originalFileName: file.name || logo.originalFileName,
+        originalFileNameKey: file.name ? keyify(file.name) : logo.originalFileNameKey,
+        updatedAt: new Date().toISOString(),
+      };
+
+      await saveLogo(updatedLogo);
+      await refreshState();
+      ensureBattle();
+      showStatus('Image replaced. Stats preserved.');
+    } catch (error) {
+      console.error('Failed to replace image:', file?.name, error);
+      alert('Image replacement failed. Your existing logo image was not changed.');
+    }
   }
 
   function button(text, className, onClick) {
