@@ -164,6 +164,14 @@ h2 { margin-bottom: 8px; }
   background: rgba(22,199,197,.075);
   outline: none;
 }
+.battle-card:disabled {
+  cursor: wait;
+}
+.battle-card:disabled:hover, .battle-card:disabled:focus-visible {
+  transform: none;
+  border-color: var(--line);
+  background: var(--card);
+}
 .battle-info h2 { font-size: clamp(1.1rem, 2vw, 1.45rem); margin: 14px 0 4px; }
 .battle-info p { margin: 0; }
 .franchise { color: var(--teal); font-weight: 800; }
