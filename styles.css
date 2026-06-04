@@ -270,19 +270,15 @@ td { color: var(--text); }
   padding: 12px;
 }
 .tier-logo {
-  flex: 0 0 150px;
+  flex: 0 0 auto;
   display: grid;
-  gap: 8px;
-  align-content: start;
-  padding: 10px;
+  place-items: center;
+  padding: 8px;
   border: 1px solid var(--line);
   border-radius: 14px;
   background: rgba(255,255,255,.04);
 }
 .tier-logo .logo-frame.thumb { width: 64px; height: 64px; }
-.tier-logo strong, .tier-logo span { display: block; }
-.tier-logo strong { font-size: .92rem; line-height: 1.2; }
-.tier-logo span { color: var(--muted); font-size: .8rem; margin-top: 3px; }
 .tier-empty { align-self: center; margin: 0; }
 .tier-settings-grid { display: grid; gap: 10px; }
 .tier-settings-row {

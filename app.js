@@ -670,10 +670,6 @@
     item.className = 'tier-logo';
     item.innerHTML = `
       <div class="logo-frame thumb"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>
-      <div>
-        <strong>${escapeHtml(logo.name)}</strong>
-        <span>${winPct(logo)}% · ${logo.wins + logo.losses} battles</span>
-      </div>
     `;
     return item;
   }
