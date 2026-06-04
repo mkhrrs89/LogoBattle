@@ -264,21 +264,24 @@ td { color: var(--text); }
 .tier-label span { color: var(--muted); font-size: .82rem; }
 .tier-logo-strip {
   display: flex;
+  flex-wrap: wrap;
   gap: 10px;
-  align-items: stretch;
-  overflow-x: auto;
+  align-items: flex-start;
+  align-content: flex-start;
+  overflow-x: visible;
   padding: 12px;
 }
 .tier-logo {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
-  padding: 8px;
-  border: 1px solid var(--line);
-  border-radius: 14px;
-  background: rgba(255,255,255,.04);
+  padding: 4px;
 }
-.tier-logo .logo-frame.thumb { width: 64px; height: 64px; }
+.tier-logo .logo-frame.thumb {
+  width: 64px;
+  height: 64px;
+  border: 0;
+}
 .tier-empty { align-self: center; margin: 0; }
 .tier-settings-grid { display: grid; gap: 10px; }
 .tier-settings-row {
