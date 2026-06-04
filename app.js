@@ -439,6 +439,29 @@
     els.undoBtn.disabled = !state.lastVote;
   }
 
+  function applyLogoFrameShape(frame, logo) {
+    const width = Number(logo.width);
+    const height = Number(logo.height);
+
+    frame.classList.toggle('portrait', width > 0 && height > width);
+    if (width > 0 && height > width) {
+      frame.style.setProperty('--logo-frame-aspect', `${width} / ${height}`);
+      return;
+    }
+
+    frame.style.removeProperty('--logo-frame-aspect');
+  }
+
+  function applyLoadedImageFrameShape(img) {
+    const frame = img.closest('.logo-frame:not(.thumb)');
+    if (!frame || !img.naturalWidth || !img.naturalHeight) return;
+
+    frame.classList.toggle('portrait', img.naturalHeight > img.naturalWidth);
+    if (img.naturalHeight > img.naturalWidth) {
+      frame.style.setProperty('--logo-frame-aspect', `${img.naturalWidth} / ${img.naturalHeight}`);
+    }
+  }
+
   function renderBattleShell() {
     const count = activeLogos().length;
     els.battleEmpty.classList.toggle('hidden', count > 0);
@@ -463,11 +486,14 @@
     for (const logo of state.currentBattle) {
       const clone = template.content.cloneNode(true);
       const btn = $('.battle-card', clone);
+      const frame = $('.logo-frame', clone);
       const img = $('img', clone);
       const title = $('h2', clone);
       const franchise = $('.franchise', clone);
       const record = $('.record', clone);
 
+      applyLogoFrameShape(frame, logo);
+      img.addEventListener('load', () => applyLoadedImageFrameShape(img), { once: true });
       img.src = logo.imageDataUrl;
       img.alt = logo.name;
       title.textContent = logo.name;
@@ -600,6 +626,11 @@
       </div>
       <div class="logo-actions"></div>
     `;
+    const frame = $('.logo-frame', card);
+    const img = $('img', card);
+    applyLogoFrameShape(frame, logo);
+    img.addEventListener('load', () => applyLoadedImageFrameShape(img), { once: true });
+
     const actions = $('.logo-actions', card);
 
     if (retiredView) {

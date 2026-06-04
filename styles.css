@@ -180,6 +180,7 @@ h2 { margin-bottom: 8px; }
   overflow: hidden;
 }
 .logo-frame.large { max-width: 430px; margin: 0 auto; }
+.logo-frame.portrait:not(.thumb) { aspect-ratio: var(--logo-frame-aspect, 1 / 1); }
 .logo-frame img {
   max-width: 86%;
   max-height: 86%;
