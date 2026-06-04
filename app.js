@@ -5,6 +5,7 @@
   const DB_VERSION = 1;
   const MAX_SIZE = 800;
   const BACKUP_VERSION = 1;
+  const POST_VOTE_INPUT_LOCK_MS = 450;
   const DEFAULT_TIERS = [
     { name: 'SS', min: 100, max: 100 },
     { name: 'S', min: 90, max: 99.9999 },
@@ -17,6 +18,9 @@
   ];
 
   let db;
+  let voteInProgress = false;
+  let battleClicksLockedUntil = 0;
+  let battleClicksUnlockTimer = null;
   let state = {
     logos: [],
     currentBattle: [],
@@ -375,6 +379,34 @@
     showStatus(`Upload complete: ${added} added, ${skipped} duplicates skipped${failed ? `, ${failed} failed` : ''}`);
   }
 
+
+  function isBattleInputLocked() {
+    return voteInProgress || Date.now() < battleClicksLockedUntil;
+  }
+
+  function updateBattleCardDisabledStates() {
+    const locked = isBattleInputLocked();
+    els.battleCards.classList.toggle('battle-grid-locked', locked);
+    $$('.battle-card', els.battleCards).forEach(btn => {
+      btn.disabled = locked;
+    });
+
+    if (battleClicksUnlockTimer) {
+      clearTimeout(battleClicksUnlockTimer);
+      battleClicksUnlockTimer = null;
+    }
+
+    const remainingLockMs = battleClicksLockedUntil - Date.now();
+    if (!voteInProgress && remainingLockMs > 0) {
+      battleClicksUnlockTimer = setTimeout(updateBattleCardDisabledStates, remainingLockMs);
+    }
+  }
+
+  function lockBattleClicksFor(durationMs) {
+    battleClicksLockedUntil = Math.max(battleClicksLockedUntil, Date.now() + durationMs);
+    updateBattleCardDisabledStates();
+  }
+
   function waitForPaint() {
     return new Promise(resolve => requestAnimationFrame(() => resolve()));
   }
@@ -416,27 +448,41 @@
   }
 
   async function vote(winnerId, loserId) {
+    if (isBattleInputLocked()) return;
+
+    const battleIds = state.currentBattle.map(logo => logo.id);
+    if (battleIds.length !== 2 || !battleIds.includes(winnerId) || !battleIds.includes(loserId)) return;
+
     const winner = state.logos.find(l => l.id === winnerId);
     const loser = state.logos.find(l => l.id === loserId);
     if (!winner || !loser) return;
 
-    winner.wins += 1;
-    loser.losses += 1;
-    winner.updatedAt = loser.updatedAt = new Date().toISOString();
-    await saveLogo(winner);
-    await saveLogo(loser);
+    voteInProgress = true;
+    updateBattleCardDisabledStates();
 
-    state.lastVote = {
-      winnerId,
-      loserId,
-      battleIds: state.currentBattle.map(logo => logo.id),
-      at: new Date().toISOString(),
-    };
-    await setMeta('lastVote', state.lastVote);
+    try {
+      winner.wins += 1;
+      loser.losses += 1;
+      winner.updatedAt = loser.updatedAt = new Date().toISOString();
+      await saveLogo(winner);
+      await saveLogo(loser);
 
-    state.logos = await getAllLogos();
-    generateBattle();
-    renderAllExceptBattle();
+      state.lastVote = {
+        winnerId,
+        loserId,
+        battleIds,
+        at: new Date().toISOString(),
+      };
+      await setMeta('lastVote', state.lastVote);
+
+      state.logos = await getAllLogos();
+      generateBattle();
+      lockBattleClicksFor(POST_VOTE_INPUT_LOCK_MS);
+      renderAllExceptBattle();
+    } finally {
+      voteInProgress = false;
+      updateBattleCardDisabledStates();
+    }
   }
 
   async function undoLastVote() {
@@ -566,6 +612,8 @@
       btn.addEventListener('click', () => vote(logo.id, opponent.id));
       els.battleCards.appendChild(clone);
     }
+
+    updateBattleCardDisabledStates();
   }
 
   function uniqueFranchises(logos = activeLogos()) {
