@@ -5,12 +5,23 @@
   const DB_VERSION = 1;
   const MAX_SIZE = 800;
   const BACKUP_VERSION = 1;
+  const DEFAULT_TIERS = [
+    { name: 'SS', min: 100, max: 100 },
+    { name: 'S', min: 90, max: 99.9999 },
+    { name: 'A', min: 80, max: 89.9999 },
+    { name: 'B', min: 70, max: 79.9999 },
+    { name: 'C', min: 60, max: 69.9999 },
+    { name: 'D', min: 50, max: 59.9999 },
+    { name: 'E', min: 40, max: 49.9999 },
+    { name: 'F', min: 0, max: 29.9999 },
+  ];
 
   let db;
   let state = {
     logos: [],
     currentBattle: [],
     lastVote: null,
+    tiers: DEFAULT_TIERS.map(tier => ({ ...tier })),
   };
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -34,6 +45,10 @@
     leaderboardBody: $('#leaderboardBody'),
     leaderboardSearch: $('#leaderboardSearch'),
     leaderboardFranchise: $('#leaderboardFranchise'),
+    tierListRows: $('#tierListRows'),
+    tierSettingsForm: $('#tierSettingsForm'),
+    tierSettingsRows: $('#tierSettingsRows'),
+    resetTierSettingsBtn: $('#resetTierSettingsBtn'),
     globalStats: $('#globalStats'),
     manageSearch: $('#manageSearch'),
     manageFranchise: $('#manageFranchise'),
@@ -148,6 +163,7 @@
   async function refreshState() {
     state.logos = await getAllLogos();
     state.lastVote = await getMeta('lastVote', null);
+    state.tiers = normalizeTiers(await getMeta('tiers', DEFAULT_TIERS));
     renderAll();
   }
 
@@ -159,14 +175,44 @@
     return state.logos.filter(l => l.retired);
   }
 
+  function normalizeTiers(tiers) {
+    if (!Array.isArray(tiers)) return DEFAULT_TIERS.map(tier => ({ ...tier }));
+
+    return DEFAULT_TIERS.map(defaultTier => {
+      const saved = tiers.find(tier => tier?.name === defaultTier.name) || {};
+      const min = Number(saved.min);
+      const max = Number(saved.max);
+
+      return {
+        name: defaultTier.name,
+        min: Number.isFinite(min) ? Math.min(100, Math.max(0, min)) : defaultTier.min,
+        max: Number.isFinite(max) ? Math.min(100, Math.max(0, max)) : defaultTier.max,
+      };
+    });
+  }
+
+  function tierRangeText(tier) {
+    if (tier.min === tier.max) return `${formatPct(tier.min)}%`;
+    if (tier.min <= 0) return `Below ${formatPct(tier.max + 0.0001)}%`;
+    return `${formatPct(tier.min)}%–${formatPct(tier.max)}%`;
+  }
+
+  function formatPct(value) {
+    return Number(value).toFixed(4).replace(/\.?0+$/, '');
+  }
+
   function recordText(logo) {
     const battles = logo.wins + logo.losses;
     return `${logo.wins}–${logo.losses} · ${winPct(logo)}%`;
   }
 
-  function winPct(logo) {
+  function winPctValue(logo) {
     const total = logo.wins + logo.losses;
-    return total ? ((logo.wins / total) * 100).toFixed(1) : '0.0';
+    return total ? (logo.wins / total) * 100 : 0;
+  }
+
+  function winPct(logo) {
+    return winPctValue(logo).toFixed(1);
   }
 
   function cleanFileName(fileName) {
@@ -424,6 +470,8 @@
     renderBattle();
     renderLeaderboardFilters();
     renderLeaderboard();
+    renderTierList();
+    renderTierSettings();
     renderManageFilters();
     renderManageGrid();
     renderRetiredGrid();
@@ -433,6 +481,8 @@
   function renderAllExceptBattle() {
     renderLeaderboardFilters();
     renderLeaderboard();
+    renderTierList();
+    renderTierSettings();
     renderManageFilters();
     renderManageGrid();
     renderRetiredGrid();
@@ -576,6 +626,106 @@
         <div class="stat-value">${escapeHtml(String(value))}</div>
       </div>
     `).join('');
+  }
+
+  function renderTierList() {
+    const ranked = sortRanked(activeLogos());
+    els.tierListRows.innerHTML = '';
+
+    if (!ranked.length) {
+      els.tierListRows.innerHTML = '<div class="card stack"><h2>No active logos yet</h2><p>Upload logos and record battles to fill out the tier list.</p></div>';
+      return;
+    }
+
+    for (const tier of state.tiers) {
+      const tierLogos = ranked.filter(logo => {
+        const pct = winPctValue(logo);
+        return pct >= tier.min && pct <= tier.max;
+      });
+
+      const row = document.createElement('section');
+      row.className = 'card tier-row';
+      row.innerHTML = `
+        <div class="tier-label">
+          <strong>${escapeHtml(tier.name)}</strong>
+          <span>${escapeHtml(tierRangeText(tier))}</span>
+        </div>
+        <div class="tier-logo-strip"></div>
+      `;
+
+      const strip = $('.tier-logo-strip', row);
+      if (!tierLogos.length) {
+        strip.innerHTML = '<p class="muted tier-empty">No logos in this tier.</p>';
+      } else {
+        for (const logo of tierLogos) {
+          strip.appendChild(tierLogo(logo));
+        }
+      }
+      els.tierListRows.appendChild(row);
+    }
+  }
+
+  function tierLogo(logo) {
+    const item = document.createElement('article');
+    item.className = 'tier-logo';
+    item.innerHTML = `
+      <div class="logo-frame thumb"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>
+      <div>
+        <strong>${escapeHtml(logo.name)}</strong>
+        <span>${winPct(logo)}% · ${logo.wins + logo.losses} battles</span>
+      </div>
+    `;
+    return item;
+  }
+
+  function renderTierSettings() {
+    els.tierSettingsRows.innerHTML = state.tiers.map(tier => `
+      <div class="tier-settings-row">
+        <strong>${escapeHtml(tier.name)}</strong>
+        <label>
+          Min %
+          <input class="input" type="number" min="0" max="100" step="0.0001" name="${escapeHtml(tier.name)}-min" value="${escapeHtml(String(tier.min))}" />
+        </label>
+        <label>
+          Max %
+          <input class="input" type="number" min="0" max="100" step="0.0001" name="${escapeHtml(tier.name)}-max" value="${escapeHtml(String(tier.max))}" />
+        </label>
+      </div>
+    `).join('');
+  }
+
+  async function saveTierSettings(event) {
+    event.preventDefault();
+    const formData = new FormData(els.tierSettingsForm);
+    const tiers = state.tiers.map(tier => {
+      const min = Number(formData.get(`${tier.name}-min`));
+      const max = Number(formData.get(`${tier.name}-max`));
+      return {
+        name: tier.name,
+        min: Number.isFinite(min) ? min : tier.min,
+        max: Number.isFinite(max) ? max : tier.max,
+      };
+    });
+
+    const invalid = tiers.find(tier => tier.min < 0 || tier.max > 100 || tier.min > tier.max);
+    if (invalid) {
+      alert(`Check the ${invalid.name} tier. Min must be 0–100 and cannot be greater than max.`);
+      return;
+    }
+
+    state.tiers = normalizeTiers(tiers);
+    await setMeta('tiers', state.tiers);
+    renderTierList();
+    renderTierSettings();
+    showStatus('Tier ranges saved');
+  }
+
+  async function resetTierSettings() {
+    state.tiers = DEFAULT_TIERS.map(tier => ({ ...tier }));
+    await setMeta('tiers', state.tiers);
+    renderTierList();
+    renderTierSettings();
+    showStatus('Tier ranges reset');
   }
 
   function renderManageFilters() {
@@ -804,7 +954,7 @@
       backupVersion: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
       logos: state.logos,
-      meta: { lastVote: state.lastVote },
+      meta: { lastVote: state.lastVote, tiers: state.tiers },
     };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -837,6 +987,7 @@
         await saveLogo(normalizeImportedLogo(logo));
       }
       await setMeta('lastVote', payload.meta?.lastVote || null);
+      await setMeta('tiers', normalizeTiers(payload.meta?.tiers || DEFAULT_TIERS));
       await refreshState();
       generateBattle();
       showStatus('Backup imported successfully');
@@ -909,6 +1060,8 @@
 
     els.leaderboardSearch.addEventListener('input', renderLeaderboard);
     els.leaderboardFranchise.addEventListener('change', renderLeaderboard);
+    els.tierSettingsForm.addEventListener('submit', saveTierSettings);
+    els.resetTierSettingsBtn.addEventListener('click', resetTierSettings);
     els.manageSearch.addEventListener('input', renderManageGrid);
     els.manageFranchise.addEventListener('change', renderManageGrid);
 
