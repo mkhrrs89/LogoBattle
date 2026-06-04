@@ -19,6 +19,7 @@
     <nav class="tabs" aria-label="App sections">
       <button class="tab-btn active" data-tab="battle">Battle</button>
       <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+      <button class="tab-btn" data-tab="tierList">Tier List</button>
       <button class="tab-btn" data-tab="manage">Manage Logos</button>
       <button class="tab-btn" data-tab="backup">Import/Export</button>
       <button class="tab-btn" data-tab="settings">Settings</button>
@@ -79,6 +80,15 @@
         </div>
       </section>
 
+      <section id="tierList" class="tab-panel">
+        <div class="card stack tier-intro">
+          <h2>Tier List</h2>
+          <p>Active logos auto-populate into tiers by win percentage. Update the tier ranges in Settings.</p>
+        </div>
+
+        <div id="tierListRows" class="tier-list" aria-live="polite"></div>
+      </section>
+
       <section id="manage" class="tab-panel">
         <div id="dropZone" class="drop-zone">
           <h2>Upload logos</h2>
@@ -125,6 +135,17 @@
           <h2>Settings</h2>
           <p>The app always opens to Battle and quietly autosaves. Big actions show a small saved status.</p>
         </div>
+        <form id="tierSettingsForm" class="card stack tier-settings">
+          <div>
+            <h2>Tier List Win % Ranges</h2>
+            <p>Set the inclusive minimum and maximum win percentage for each tier. Logos update automatically as battles are recorded.</p>
+          </div>
+          <div id="tierSettingsRows" class="tier-settings-grid"></div>
+          <div class="tier-settings-actions">
+            <button type="button" id="resetTierSettingsBtn" class="ghost-btn">Reset Defaults</button>
+            <button type="submit" class="primary-btn">Save Tier Ranges</button>
+          </div>
+        </form>
         <div class="card stack danger-zone">
           <h2>Danger Zone</h2>
           <p>Reset all active and retired logo stats back to 0–0. Images and franchises stay saved.</p>
