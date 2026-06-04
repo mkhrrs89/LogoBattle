@@ -426,7 +426,12 @@
     await saveLogo(winner);
     await saveLogo(loser);
 
-    state.lastVote = { winnerId, loserId, at: new Date().toISOString() };
+    state.lastVote = {
+      winnerId,
+      loserId,
+      battleIds: state.currentBattle.map(logo => logo.id),
+      at: new Date().toISOString(),
+    };
     await setMeta('lastVote', state.lastVote);
 
     state.logos = await getAllLogos();
@@ -449,6 +454,13 @@
     state.lastVote = null;
     await setMeta('lastVote', null);
     state.logos = await getAllLogos();
+
+    const battleIds = Array.isArray(last.battleIds) && last.battleIds.length === 2
+      ? last.battleIds
+      : [last.winnerId, last.loserId];
+    const nextBattle = battleIds.map(id => state.logos.find(logo => logo.id === id && !logo.retired));
+    state.currentBattle = nextBattle.every(Boolean) ? nextBattle : [];
+
     renderAll();
     showStatus('Last vote undone');
   }
