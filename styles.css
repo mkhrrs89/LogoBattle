@@ -269,6 +269,16 @@ td { color: var(--text); }
 .logo-actions button { padding: 8px 9px; min-height: 36px; border-radius: 10px; font-size: .9rem; }
 
 .team-leaders-intro { margin-bottom: 16px; }
+.team-leader-visibility {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  width: max-content;
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+.team-leader-visibility input { width: 18px; height: 18px; margin: 0; accent-color: var(--teal); }
 .team-leaders-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -287,6 +297,19 @@ td { color: var(--text); }
   gap: 12px;
 }
 .team-leader-header h2 { margin: 0; font-size: 1.1rem; }
+.team-leader-card.inactive-team { opacity: .62; border-style: dashed; }
+.team-status-badge {
+  flex: 0 0 auto;
+  padding: 4px 7px;
+  border: 1px solid rgba(251,146,60,.4);
+  border-radius: 999px;
+  background: rgba(251,146,60,.1);
+  color: var(--orange);
+  font-size: .7rem;
+  font-weight: 900;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+}
 .team-leader-badge {
   justify-self: start;
   width: max-content;
@@ -362,7 +385,7 @@ td { color: var(--text); }
 .tier-settings-row label { display: grid; gap: 6px; color: var(--muted); font-size: .88rem; }
 .tier-settings-actions { display: flex; justify-content: flex-end; gap: 10px; flex-wrap: wrap; }
 
-.franchise-group-settings, .danger-zone { margin-top: 16px; }
+.franchise-group-settings, .team-status-settings, .danger-zone { margin-top: 16px; }
 .franchise-group-name-label { display: grid; gap: 6px; color: var(--muted); }
 .franchise-group-options {
   display: grid;
@@ -408,6 +431,37 @@ td { color: var(--text); }
 .franchise-group-item p { color: var(--muted); font-size: .9rem; }
 .franchise-group-actions { display: flex; gap: 8px; flex: 0 0 auto; }
 .franchise-group-actions button { min-height: 36px; padding: 8px 10px; border-radius: 10px; }
+
+.team-status-selection-actions, .team-status-form-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.team-status-options {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+  gap: 8px;
+  max-height: 360px;
+  overflow: auto;
+  padding: 10px;
+  border: 1px solid var(--line);
+  border-radius: 14px;
+  background: rgba(0,0,0,.16);
+}
+.team-status-option {
+  display: flex;
+  align-items: flex-start;
+  gap: 9px;
+  padding: 9px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  background: rgba(255,255,255,.035);
+  cursor: pointer;
+}
+.team-status-option input { margin-top: 3px; accent-color: var(--teal); }
+.team-status-option span { display: grid; gap: 3px; min-width: 0; }
+.team-status-option small { color: var(--muted); }
 
 .progress { margin-top: 16px; text-align: left; max-width: 560px; margin-inline: auto; }
 .progress-text { color: var(--muted); margin-bottom: 8px; }
