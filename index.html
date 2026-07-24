@@ -156,6 +156,30 @@
             <button type="submit" class="primary-btn">Save Tier Ranges</button>
           </div>
         </form>
+        <form id="franchiseGroupForm" class="card stack franchise-group-settings" autocomplete="off">
+          <input type="hidden" id="franchiseGroupId" />
+          <div>
+            <h2>Franchise Groups</h2>
+            <p>Combine renamed or relocated teams into one franchise. This groups them in Best by Team and in franchise filters without changing their original names.</p>
+          </div>
+          <label class="franchise-group-name-label">
+            Combined franchise name
+            <input id="franchiseGroupName" class="input" required placeholder="Example: Nets" />
+          </label>
+          <div>
+            <h3>Teams in this franchise</h3>
+            <p class="muted">Select at least two teams. A team can belong to only one franchise group.</p>
+            <div id="franchiseGroupOptions" class="franchise-group-options"></div>
+          </div>
+          <div class="franchise-group-form-actions">
+            <button type="button" id="cancelFranchiseGroupBtn" class="ghost-btn hidden">Cancel Editing</button>
+            <button type="submit" id="saveFranchiseGroupBtn" class="primary-btn">Save Franchise Group</button>
+          </div>
+          <div class="franchise-groups-saved">
+            <h3>Saved Franchise Groups</h3>
+            <div id="franchiseGroupsList" class="franchise-groups-list"></div>
+          </div>
+        </form>
         <div class="card stack danger-zone">
           <h2>Danger Zone</h2>
           <p>Reset all active and retired logo stats back to 0–0. Images and franchises stay saved.</p>
