@@ -1008,7 +1008,7 @@
     event.preventDefault();
     const editingId = els.franchiseGroupId.value;
     const name = els.franchiseGroupName.value.trim();
-    const members = $('input[name="franchiseGroupMember"]:checked', els.franchiseGroupOptions).map(input => input.value);
+    const members = $$('input[name="franchiseGroupMember"]:checked', els.franchiseGroupOptions).map(input => input.value);
 
     if (!name) {
       alert('Enter a combined franchise name.');
@@ -1043,11 +1043,21 @@
       ? state.franchiseGroups.map(group => group.id === editingId ? nextGroup : group)
       : [...state.franchiseGroups, nextGroup];
 
-    state.franchiseGroups = normalizeFranchiseGroups(nextGroups);
-    await setMeta('franchiseGroups', state.franchiseGroups);
-    clearFranchiseGroupForm();
-    renderAll();
-    showStatus(editingId ? 'Franchise group updated' : 'Franchise group saved');
+    const previousGroups = state.franchiseGroups;
+    els.saveFranchiseGroupBtn.disabled = true;
+    try {
+      state.franchiseGroups = normalizeFranchiseGroups(nextGroups);
+      await setMeta('franchiseGroups', state.franchiseGroups);
+      clearFranchiseGroupForm();
+      renderAll();
+      showStatus(editingId ? 'Franchise group updated' : 'Franchise group saved');
+    } catch (error) {
+      state.franchiseGroups = previousGroups;
+      console.error('Failed to save franchise group:', error);
+      alert('The franchise group could not be saved. Please try again.');
+    } finally {
+      els.saveFranchiseGroupBtn.disabled = false;
+    }
   }
 
   async function deleteFranchiseGroup(groupId) {
