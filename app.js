@@ -791,11 +791,9 @@
     for (const { franchise, leaders } of teams) {
       const card = document.createElement('section');
       card.className = 'card team-leader-card';
-      const tieLabel = leaders.length > 1 ? `${leaders.length}-way tie` : `${winPct(leaders[0])}% win rate`;
       card.innerHTML = `
         <div class="team-leader-header">
           <h2>${escapeHtml(franchise)}</h2>
-          <span class="team-leader-badge">${escapeHtml(tieLabel)}</span>
         </div>
         <div class="team-leader-logos"></div>
       `;
@@ -806,6 +804,7 @@
         item.className = 'team-leader-logo';
         item.innerHTML = `
           <div class="logo-frame"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>
+          <span class="team-leader-badge">${winPct(logo)}% win rate</span>
           <div>
             <h3>${escapeHtml(logo.name)}</h3>
             <p>${logo.wins}–${logo.losses} · ${winPct(logo)}% · ${logo.wins + logo.losses} battles</p>
