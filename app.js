@@ -4,7 +4,7 @@
   const DB_NAME = 'nbaLogoBattleDB';
   const DB_VERSION = 1;
   const MAX_SIZE = 800;
-  const BACKUP_VERSION = 1;
+  const BACKUP_VERSION = 2;
   const POST_VOTE_INPUT_LOCK_MS = 450;
   const DEFAULT_TIERS = [
     { name: 'SS', min: 100, max: 100 },
@@ -26,6 +26,7 @@
     currentBattle: [],
     lastVote: null,
     tiers: DEFAULT_TIERS.map(tier => ({ ...tier })),
+    franchiseGroups: [],
   };
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -54,6 +55,13 @@
     tierSettingsForm: $('#tierSettingsForm'),
     tierSettingsRows: $('#tierSettingsRows'),
     resetTierSettingsBtn: $('#resetTierSettingsBtn'),
+    franchiseGroupForm: $('#franchiseGroupForm'),
+    franchiseGroupId: $('#franchiseGroupId'),
+    franchiseGroupName: $('#franchiseGroupName'),
+    franchiseGroupOptions: $('#franchiseGroupOptions'),
+    franchiseGroupsList: $('#franchiseGroupsList'),
+    saveFranchiseGroupBtn: $('#saveFranchiseGroupBtn'),
+    cancelFranchiseGroupBtn: $('#cancelFranchiseGroupBtn'),
     globalStats: $('#globalStats'),
     manageSearch: $('#manageSearch'),
     manageFranchise: $('#manageFranchise'),
@@ -169,6 +177,7 @@
     state.logos = await getAllLogos();
     state.lastVote = await getMeta('lastVote', null);
     state.tiers = normalizeTiers(await getMeta('tiers', DEFAULT_TIERS));
+    state.franchiseGroups = normalizeFranchiseGroups(await getMeta('franchiseGroups', []));
     renderAll();
   }
 
@@ -194,6 +203,43 @@
         max: Number.isFinite(max) ? Math.min(100, Math.max(0, max)) : defaultTier.max,
       };
     });
+  }
+
+  function normalizeFranchiseGroups(groups) {
+    if (!Array.isArray(groups)) return [];
+
+    const claimedMembers = new Set();
+    const claimedNames = new Set();
+    const claimedIds = new Set();
+    const normalized = [];
+
+    for (const rawGroup of groups) {
+      const name = String(rawGroup?.name || '').trim();
+      const nameKey = name.toLocaleLowerCase();
+      if (!name || claimedNames.has(nameKey)) continue;
+
+      const members = [];
+      const seenMembers = new Set();
+      for (const rawMember of Array.isArray(rawGroup?.members) ? rawGroup.members : []) {
+        const member = String(rawMember || '').trim();
+        const memberKey = member.toLocaleLowerCase();
+        if (!member || seenMembers.has(memberKey) || claimedMembers.has(memberKey)) continue;
+        seenMembers.add(memberKey);
+        members.push(member);
+      }
+
+      if (members.length < 2) continue;
+
+      let groupId = String(rawGroup?.id || '').trim();
+      if (!groupId || claimedIds.has(groupId)) groupId = id();
+      claimedIds.add(groupId);
+      claimedNames.add(nameKey);
+      members.forEach(member => claimedMembers.add(member.toLocaleLowerCase()));
+      members.sort((a, b) => a.localeCompare(b));
+      normalized.push({ id: groupId, name, members });
+    }
+
+    return normalized;
   }
 
   function tierRangeText(tier) {
@@ -532,6 +578,7 @@
     renderTeamLeaders();
     renderTierList();
     renderTierSettings();
+    renderFranchiseGroupSettings();
     renderManageFilters();
     renderManageGrid();
     renderRetiredGrid();
@@ -544,6 +591,7 @@
     renderTeamLeaders();
     renderTierList();
     renderTierSettings();
+    renderFranchiseGroupSettings();
     renderManageFilters();
     renderManageGrid();
     renderRetiredGrid();
@@ -619,9 +667,30 @@
     updateBattleCardDisabledStates();
   }
 
-  function uniqueFranchises(logos = activeLogos()) {
-    return [...new Set(logos.map(l => l.franchise).filter(Boolean))].sort((a, b) => a.localeCompare(b));
+  function franchiseGroupFor(franchise) {
+    const name = franchise || 'Unknown Franchise';
+    const nameKey = name.toLocaleLowerCase();
+    return state.franchiseGroups.find(group => group.members.some(member => member.toLocaleLowerCase() === nameKey)) || null;
   }
+
+  function groupedFranchiseName(franchise) {
+    const name = franchise || 'Unknown Franchise';
+    return franchiseGroupFor(name)?.name || name;
+  }
+
+  function uniqueFranchises(logos = activeLogos(), grouped = true) {
+    const names = logos
+      .map(logo => grouped ? groupedFranchiseName(logo.franchise) : logo.franchise)
+      .filter(Boolean);
+    return [...new Set(names)].sort((a, b) => a.localeCompare(b));
+  }
+
+  function availableRawFranchises() {
+    const names = new Set(uniqueFranchises(state.logos, false));
+    state.franchiseGroups.forEach(group => group.members.forEach(member => names.add(member)));
+    return [...names].sort((a, b) => a.localeCompare(b));
+  }
+
 
   function fillFranchiseSelect(select, logos, allLabel = 'All franchises') {
     const current = select.value;
@@ -643,8 +712,9 @@
     const query = els.leaderboardSearch.value.trim().toLowerCase();
     const franchise = els.leaderboardFranchise.value;
     const filtered = activeLogos().filter(l => {
-      const matchesSearch = !query || `${l.name} ${l.franchise}`.toLowerCase().includes(query);
-      const matchesFranchise = !franchise || l.franchise === franchise;
+      const groupedFranchise = groupedFranchiseName(l.franchise);
+      const matchesSearch = !query || `${l.name} ${l.franchise} ${groupedFranchise}`.toLowerCase().includes(query);
+      const matchesFranchise = !franchise || groupedFranchise === franchise;
       return matchesSearch && matchesFranchise;
     });
     const ranked = sortRanked(filtered);
@@ -695,7 +765,7 @@
     const byFranchise = new Map();
 
     for (const logo of logos) {
-      const franchise = logo.franchise || 'Unknown Franchise';
+      const franchise = groupedFranchiseName(logo.franchise);
       if (!byFranchise.has(franchise)) byFranchise.set(franchise, []);
       byFranchise.get(franchise).push(logo);
     }
@@ -849,6 +919,148 @@
     showStatus('Tier ranges reset');
   }
 
+  function renderFranchiseGroupSettings() {
+    const editingId = els.franchiseGroupId.value;
+    const editingGroup = state.franchiseGroups.find(group => group.id === editingId) || null;
+    if (editingId && !editingGroup) {
+      els.franchiseGroupId.value = '';
+      els.franchiseGroupName.value = '';
+    }
+
+    const activeEditingGroup = editingGroup || null;
+    const membership = new Map();
+    for (const group of state.franchiseGroups) {
+      group.members.forEach(member => membership.set(member, group));
+    }
+
+    els.franchiseGroupOptions.innerHTML = '';
+    const franchises = availableRawFranchises();
+    if (!franchises.length) {
+      els.franchiseGroupOptions.innerHTML = '<p class="muted">Upload at least two teams before creating a franchise group.</p>';
+    } else {
+      for (const franchise of franchises) {
+        const owner = membership.get(franchise) || null;
+        const option = document.createElement('label');
+        option.className = 'franchise-group-option';
+
+        const checkbox = document.createElement('input');
+        checkbox.type = 'checkbox';
+        checkbox.name = 'franchiseGroupMember';
+        checkbox.value = franchise;
+        checkbox.checked = Boolean(activeEditingGroup?.members.includes(franchise));
+        checkbox.disabled = Boolean(owner && owner.id !== activeEditingGroup?.id);
+        if (checkbox.disabled) option.classList.add('disabled');
+
+        const text = document.createElement('span');
+        text.innerHTML = `<strong>${escapeHtml(franchise)}</strong>${owner && owner.id !== activeEditingGroup?.id ? `<small>Already in ${escapeHtml(owner.name)}</small>` : ''}`;
+        option.append(checkbox, text);
+        els.franchiseGroupOptions.appendChild(option);
+      }
+    }
+
+    els.saveFranchiseGroupBtn.textContent = activeEditingGroup ? 'Update Franchise Group' : 'Save Franchise Group';
+    els.cancelFranchiseGroupBtn.classList.toggle('hidden', !activeEditingGroup);
+
+    els.franchiseGroupsList.innerHTML = '';
+    if (!state.franchiseGroups.length) {
+      els.franchiseGroupsList.innerHTML = '<p class="muted">No franchise groups saved yet.</p>';
+      return;
+    }
+
+    for (const group of [...state.franchiseGroups].sort((a, b) => a.name.localeCompare(b.name))) {
+      const item = document.createElement('article');
+      item.className = 'franchise-group-item';
+      item.innerHTML = `
+        <div>
+          <h4>${escapeHtml(group.name)}</h4>
+          <p>${group.members.map(escapeHtml).join(' · ')}</p>
+        </div>
+        <div class="franchise-group-actions"></div>
+      `;
+      $('.franchise-group-actions', item).append(
+        button('Edit', 'ghost-btn', () => editFranchiseGroup(group.id)),
+        button('Delete', 'danger-btn', () => deleteFranchiseGroup(group.id)),
+      );
+      els.franchiseGroupsList.appendChild(item);
+    }
+  }
+
+  function editFranchiseGroup(groupId) {
+    const group = state.franchiseGroups.find(item => item.id === groupId);
+    if (!group) return;
+    els.franchiseGroupId.value = group.id;
+    els.franchiseGroupName.value = group.name;
+    renderFranchiseGroupSettings();
+    els.franchiseGroupName.focus();
+  }
+
+  function clearFranchiseGroupForm() {
+    els.franchiseGroupId.value = '';
+    els.franchiseGroupName.value = '';
+  }
+
+  function cancelFranchiseGroupEdit() {
+    clearFranchiseGroupForm();
+    renderFranchiseGroupSettings();
+  }
+
+  async function saveFranchiseGroup(event) {
+    event.preventDefault();
+    const editingId = els.franchiseGroupId.value;
+    const name = els.franchiseGroupName.value.trim();
+    const members = $('input[name="franchiseGroupMember"]:checked', els.franchiseGroupOptions).map(input => input.value);
+
+    if (!name) {
+      alert('Enter a combined franchise name.');
+      return;
+    }
+    if (members.length < 2) {
+      alert('Select at least two teams for this franchise group.');
+      return;
+    }
+
+    const nameKey = name.toLocaleLowerCase();
+    const duplicateName = state.franchiseGroups.find(group => group.id !== editingId && group.name.toLocaleLowerCase() === nameKey);
+    if (duplicateName) {
+      alert('Another franchise group already uses that name.');
+      return;
+    }
+
+    const memberConflict = state.franchiseGroups.find(group => group.id !== editingId && group.members.some(member => members.includes(member)));
+    if (memberConflict) {
+      alert(`One of those teams already belongs to ${memberConflict.name}.`);
+      return;
+    }
+
+    const rawNameCollision = availableRawFranchises().find(franchise => franchise.toLocaleLowerCase() === nameKey && !members.includes(franchise));
+    if (rawNameCollision) {
+      alert(`Include ${rawNameCollision} in this group or choose a different combined franchise name.`);
+      return;
+    }
+
+    const nextGroup = { id: editingId || id(), name, members };
+    const nextGroups = editingId
+      ? state.franchiseGroups.map(group => group.id === editingId ? nextGroup : group)
+      : [...state.franchiseGroups, nextGroup];
+
+    state.franchiseGroups = normalizeFranchiseGroups(nextGroups);
+    await setMeta('franchiseGroups', state.franchiseGroups);
+    clearFranchiseGroupForm();
+    renderAll();
+    showStatus(editingId ? 'Franchise group updated' : 'Franchise group saved');
+  }
+
+  async function deleteFranchiseGroup(groupId) {
+    const group = state.franchiseGroups.find(item => item.id === groupId);
+    if (!group || !confirm(`Delete the ${group.name} franchise group? The original team names will stay unchanged.`)) return;
+
+    state.franchiseGroups = state.franchiseGroups.filter(item => item.id !== groupId);
+    await setMeta('franchiseGroups', state.franchiseGroups);
+    if (els.franchiseGroupId.value === groupId) clearFranchiseGroupForm();
+    renderAll();
+    showStatus('Franchise group deleted');
+  }
+
   function renderManageFilters() {
     fillFranchiseSelect(els.manageFranchise, activeLogos());
   }
@@ -857,8 +1069,9 @@
     const query = els.manageSearch.value.trim().toLowerCase();
     const franchise = els.manageFranchise.value;
     const logos = sortRanked(activeLogos()).filter(l => {
-      const matchesSearch = !query || `${l.name} ${l.franchise}`.toLowerCase().includes(query);
-      const matchesFranchise = !franchise || l.franchise === franchise;
+      const groupedFranchise = groupedFranchiseName(l.franchise);
+      const matchesSearch = !query || `${l.name} ${l.franchise} ${groupedFranchise}`.toLowerCase().includes(query);
+      const matchesFranchise = !franchise || groupedFranchise === franchise;
       return matchesSearch && matchesFranchise;
     });
 
@@ -1075,7 +1288,7 @@
       backupVersion: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
       logos: state.logos,
-      meta: { lastVote: state.lastVote, tiers: state.tiers },
+      meta: { lastVote: state.lastVote, tiers: state.tiers, franchiseGroups: state.franchiseGroups },
     };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1109,6 +1322,7 @@
       }
       await setMeta('lastVote', payload.meta?.lastVote || null);
       await setMeta('tiers', normalizeTiers(payload.meta?.tiers || DEFAULT_TIERS));
+      await setMeta('franchiseGroups', normalizeFranchiseGroups(payload.meta?.franchiseGroups || []));
       await refreshState();
       generateBattle();
       showStatus('Backup imported successfully');
@@ -1183,6 +1397,8 @@
     els.leaderboardFranchise.addEventListener('change', renderLeaderboard);
     els.tierSettingsForm.addEventListener('submit', saveTierSettings);
     els.resetTierSettingsBtn.addEventListener('click', resetTierSettings);
+    els.franchiseGroupForm.addEventListener('submit', saveFranchiseGroup);
+    els.cancelFranchiseGroupBtn.addEventListener('click', cancelFranchiseGroupEdit);
     els.manageSearch.addEventListener('input', renderManageGrid);
     els.manageFranchise.addEventListener('change', renderManageGrid);
 
