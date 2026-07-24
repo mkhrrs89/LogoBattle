@@ -254,7 +254,7 @@ td { color: var(--text); }
 .team-leaders-intro { margin-bottom: 16px; }
 .team-leaders-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
   gap: 14px;
 }
 .team-leader-card {
@@ -434,7 +434,7 @@ td { color: var(--text); }
   .toolbar-actions button { flex: 1 1 auto; }
   .battle-grid, .two-col, .tier-row { grid-template-columns: 1fr; }
   .stats-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .logo-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+  .logo-grid, .team-leaders-grid { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .tier-label { border-right: 0; border-bottom: 1px solid var(--line); }
   .tier-settings-row { grid-template-columns: 1fr; }
   .tier-settings-row > strong { padding-bottom: 0; }
@@ -445,6 +445,6 @@ td { color: var(--text); }
 
 @media (max-width: 440px) {
   .stats-grid { grid-template-columns: 1fr; }
-  .logo-grid { grid-template-columns: 1fr 1fr; }
+  .logo-grid, .team-leaders-grid { grid-template-columns: 1fr 1fr; }
   .logo-actions { grid-template-columns: 1fr; }
 }
