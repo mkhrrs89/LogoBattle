@@ -200,6 +200,12 @@ h2 { margin-bottom: 8px; }
 .logo-frame.thumb { width: 52px; height: 52px; border-radius: 12px; }
 .logo-frame.thumb img { max-width: 82%; max-height: 82%; }
 
+.leaderboard-table tbody td:nth-child(2) { padding-block: 0; }
+.leaderboard-table tbody td:nth-child(2) .logo-frame.thumb {
+  width: 76px;
+  height: 76px;
+}
+
 .controls-row {
   display: flex;
   gap: 10px;
