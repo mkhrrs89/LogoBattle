@@ -271,7 +271,8 @@ td { color: var(--text); }
 }
 .team-leader-header h2 { margin: 0; font-size: 1.1rem; }
 .team-leader-badge {
-  flex: 0 0 auto;
+  justify-self: start;
+  width: max-content;
   padding: 5px 8px;
   border: 1px solid rgba(22,199,197,.35);
   border-radius: 999px;
