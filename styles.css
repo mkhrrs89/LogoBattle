@@ -229,12 +229,23 @@ h2 { margin-bottom: 8px; }
 .stats-grid {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
-  gap: 12px;
-  margin-bottom: 16px;
+  gap: 8px;
+  margin-bottom: 12px;
 }
-.stat-card { padding: 16px; }
-.stat-label { color: var(--muted); font-size: .82rem; text-transform: uppercase; letter-spacing: .08em; }
-.stat-value { font-size: clamp(1.25rem, 2.2vw, 2rem); font-weight: 900; margin-top: 5px; }
+.stat-card { padding: 10px 12px; }
+.stat-label {
+  color: var(--muted);
+  font-size: .72rem;
+  line-height: 1.2;
+  text-transform: uppercase;
+  letter-spacing: .07em;
+}
+.stat-value {
+  font-size: clamp(1rem, 1.6vw, 1.4rem);
+  font-weight: 900;
+  line-height: 1.2;
+  margin-top: 2px;
+}
 
 .table-card { padding: 0; overflow: hidden; }
 .table-scroll { overflow-x: auto; }
