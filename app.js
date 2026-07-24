@@ -49,6 +49,7 @@
     leaderboardBody: $('#leaderboardBody'),
     leaderboardSearch: $('#leaderboardSearch'),
     leaderboardFranchise: $('#leaderboardFranchise'),
+    teamLeadersGrid: $('#teamLeadersGrid'),
     tierListRows: $('#tierListRows'),
     tierSettingsForm: $('#tierSettingsForm'),
     tierSettingsRows: $('#tierSettingsRows'),
@@ -528,6 +529,7 @@
     renderBattle();
     renderLeaderboardFilters();
     renderLeaderboard();
+    renderTeamLeaders();
     renderTierList();
     renderTierSettings();
     renderManageFilters();
@@ -539,6 +541,7 @@
   function renderAllExceptBattle() {
     renderLeaderboardFilters();
     renderLeaderboard();
+    renderTeamLeaders();
     renderTierList();
     renderTierSettings();
     renderManageFilters();
@@ -686,6 +689,68 @@
         <div class="stat-value">${escapeHtml(String(value))}</div>
       </div>
     `).join('');
+  }
+
+  function teamWinPctLeaders(logos = activeLogos()) {
+    const byFranchise = new Map();
+
+    for (const logo of logos) {
+      const franchise = logo.franchise || 'Unknown Franchise';
+      if (!byFranchise.has(franchise)) byFranchise.set(franchise, []);
+      byFranchise.get(franchise).push(logo);
+    }
+
+    return [...byFranchise.entries()]
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([franchise, franchiseLogos]) => {
+        const bestPct = Math.max(...franchiseLogos.map(winPctValue));
+        const leaders = sortRanked(franchiseLogos.filter(logo => winPctValue(logo) === bestPct));
+        return { franchise, leaders };
+      });
+  }
+
+  function renderTeamLeaders() {
+    const teams = teamWinPctLeaders();
+    els.teamLeadersGrid.innerHTML = '';
+
+    if (!teams.length) {
+      els.teamLeadersGrid.innerHTML = '<div class="card stack"><h2>No active logos yet</h2><p>Upload logos and record battles to see each team\'s leader.</p></div>';
+      return;
+    }
+
+    for (const { franchise, leaders } of teams) {
+      const card = document.createElement('section');
+      card.className = 'card team-leader-card';
+      const tieLabel = leaders.length > 1 ? `${leaders.length}-way tie` : `${winPct(leaders[0])}% win rate`;
+      card.innerHTML = `
+        <div class="team-leader-header">
+          <h2>${escapeHtml(franchise)}</h2>
+          <span class="team-leader-badge">${escapeHtml(tieLabel)}</span>
+        </div>
+        <div class="team-leader-logos"></div>
+      `;
+
+      const logoWrap = $('.team-leader-logos', card);
+      for (const logo of leaders) {
+        const item = document.createElement('article');
+        item.className = 'team-leader-logo';
+        item.innerHTML = `
+          <div class="logo-frame"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>
+          <div>
+            <h3>${escapeHtml(logo.name)}</h3>
+            <p>${logo.wins}–${logo.losses} · ${winPct(logo)}% · ${logo.wins + logo.losses} battles</p>
+          </div>
+        `;
+
+        const frame = $('.logo-frame', item);
+        const img = $('img', item);
+        applyLogoFrameShape(frame, logo);
+        img.addEventListener('load', () => applyLoadedImageFrameShape(img), { once: true });
+        logoWrap.appendChild(item);
+      }
+
+      els.teamLeadersGrid.appendChild(card);
+    }
   }
 
   function renderTierList() {
