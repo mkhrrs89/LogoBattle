@@ -4,7 +4,7 @@
   const DB_NAME = 'nbaLogoBattleDB';
   const DB_VERSION = 1;
   const MAX_SIZE = 800;
-  const BACKUP_VERSION = 2;
+  const BACKUP_VERSION = 3;
   const POST_VOTE_INPUT_LOCK_MS = 450;
   const DEFAULT_TIERS = [
     { name: 'SS', min: 100, max: 100 },
@@ -27,6 +27,8 @@
     lastVote: null,
     tiers: DEFAULT_TIERS.map(tier => ({ ...tier })),
     franchiseGroups: [],
+    inactiveTeamKeys: [],
+    hideInactiveTeamLeaders: false,
   };
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -62,6 +64,11 @@
     franchiseGroupsList: $('#franchiseGroupsList'),
     saveFranchiseGroupBtn: $('#saveFranchiseGroupBtn'),
     cancelFranchiseGroupBtn: $('#cancelFranchiseGroupBtn'),
+    teamStatusForm: $('#teamStatusForm'),
+    teamStatusOptions: $('#teamStatusOptions'),
+    setAllTeamsActiveBtn: $('#setAllTeamsActiveBtn'),
+    setAllTeamsInactiveBtn: $('#setAllTeamsInactiveBtn'),
+    hideInactiveTeamsToggle: $('#hideInactiveTeamsToggle'),
     globalStats: $('#globalStats'),
     manageSearch: $('#manageSearch'),
     manageFranchise: $('#manageFranchise'),
@@ -178,6 +185,8 @@
     state.lastVote = await getMeta('lastVote', null);
     state.tiers = normalizeTiers(await getMeta('tiers', DEFAULT_TIERS));
     state.franchiseGroups = normalizeFranchiseGroups(await getMeta('franchiseGroups', []));
+    state.inactiveTeamKeys = normalizeInactiveTeamKeys(await getMeta('inactiveTeamKeys', []));
+    state.hideInactiveTeamLeaders = Boolean(await getMeta('hideInactiveTeamLeaders', false));
     renderAll();
   }
 
@@ -240,6 +249,11 @@
     }
 
     return normalized;
+  }
+
+  function normalizeInactiveTeamKeys(keys) {
+    if (!Array.isArray(keys)) return [];
+    return [...new Set(keys.map(key => String(key || '').trim()).filter(Boolean))];
   }
 
   function tierRangeText(tier) {
@@ -579,6 +593,7 @@
     renderTierList();
     renderTierSettings();
     renderFranchiseGroupSettings();
+    renderTeamStatusSettings();
     renderManageFilters();
     renderManageGrid();
     renderRetiredGrid();
@@ -592,6 +607,7 @@
     renderTierList();
     renderTierSettings();
     renderFranchiseGroupSettings();
+    renderTeamStatusSettings();
     renderManageFilters();
     renderManageGrid();
     renderRetiredGrid();
@@ -676,6 +692,32 @@
   function groupedFranchiseName(franchise) {
     const name = franchise || 'Unknown Franchise';
     return franchiseGroupFor(name)?.name || name;
+  }
+
+  function franchiseGroupByName(franchise) {
+    const nameKey = String(franchise || '').toLocaleLowerCase();
+    return state.franchiseGroups.find(group => group.name.toLocaleLowerCase() === nameKey) || null;
+  }
+
+  function teamStatusKey(franchise) {
+    const name = franchise || 'Unknown Franchise';
+    const group = franchiseGroupFor(name) || franchiseGroupByName(name);
+    return group ? `group:${group.id}` : `franchise:${name.toLocaleLowerCase()}`;
+  }
+
+  function isTeamActive(franchise) {
+    return !state.inactiveTeamKeys.includes(teamStatusKey(franchise));
+  }
+
+  function teamStatusChoices() {
+    const byTeam = new Map();
+    for (const logo of activeLogos()) {
+      const franchise = groupedFranchiseName(logo.franchise);
+      const current = byTeam.get(franchise) || { franchise, key: teamStatusKey(franchise), logoCount: 0 };
+      current.logoCount += 1;
+      byTeam.set(franchise, current);
+    }
+    return [...byTeam.values()].sort((a, b) => a.franchise.localeCompare(b.franchise));
   }
 
   function uniqueFranchises(logos = activeLogos(), grouped = true) {
@@ -812,20 +854,30 @@
   }
 
   function renderTeamLeaders() {
-    const teams = teamWinPctLeaders();
+    const allTeams = teamWinPctLeaders();
+    const teams = state.hideInactiveTeamLeaders
+      ? allTeams.filter(team => isTeamActive(team.franchise))
+      : allTeams;
+    els.hideInactiveTeamsToggle.checked = state.hideInactiveTeamLeaders;
     els.teamLeadersGrid.innerHTML = '';
 
     if (!teams.length) {
-      els.teamLeadersGrid.innerHTML = '<div class="card stack"><h2>No active logos yet</h2><p>Upload logos and record battles to see each team\'s leader.</p></div>';
+      if (allTeams.length && state.hideInactiveTeamLeaders) {
+        els.teamLeadersGrid.innerHTML = '<div class="card stack"><h2>No active teams selected</h2><p>Mark teams active in Settings or turn off the inactive-team filter.</p></div>';
+      } else {
+        els.teamLeadersGrid.innerHTML = '<div class="card stack"><h2>No active logos yet</h2><p>Upload logos and record battles to see each team\'s leader.</p></div>';
+      }
       return;
     }
 
     for (const { franchise, leaders } of teams) {
+      const teamActive = isTeamActive(franchise);
       const card = document.createElement('section');
-      card.className = 'card team-leader-card';
+      card.className = `card team-leader-card${teamActive ? '' : ' inactive-team'}`;
       card.innerHTML = `
         <div class="team-leader-header">
           <h2>${escapeHtml(franchise)}</h2>
+          ${teamActive ? '' : '<span class="team-status-badge">Inactive</span>'}
         </div>
         <div class="team-leader-logos"></div>
       `;
@@ -1102,6 +1154,75 @@
     showStatus('Franchise group deleted');
   }
 
+  function renderTeamStatusSettings() {
+    const choices = teamStatusChoices();
+    els.teamStatusOptions.innerHTML = '';
+
+    if (!choices.length) {
+      els.teamStatusOptions.innerHTML = '<p class="muted">Upload logos before choosing active teams.</p>';
+      return;
+    }
+
+    for (const { franchise, key, logoCount } of choices) {
+      const option = document.createElement('label');
+      option.className = 'team-status-option';
+
+      const checkbox = document.createElement('input');
+      checkbox.type = 'checkbox';
+      checkbox.name = 'activeTeam';
+      checkbox.value = key;
+      checkbox.checked = !state.inactiveTeamKeys.includes(key);
+
+      const text = document.createElement('span');
+      text.innerHTML = `<strong>${escapeHtml(franchise)}</strong><small>${logoCount} ${logoCount === 1 ? 'logo' : 'logos'}</small>`;
+      option.append(checkbox, text);
+      els.teamStatusOptions.appendChild(option);
+    }
+  }
+
+  function setAllTeamStatusCheckboxes(active) {
+    $$('input[name="activeTeam"]', els.teamStatusOptions).forEach(input => {
+      input.checked = active;
+    });
+  }
+
+  async function saveTeamStatusSettings(event) {
+    event.preventDefault();
+    const choices = teamStatusChoices();
+    const activeKeys = new Set($$('input[name="activeTeam"]:checked', els.teamStatusOptions).map(input => input.value));
+    const previousInactiveTeamKeys = state.inactiveTeamKeys;
+    state.inactiveTeamKeys = choices.map(choice => choice.key).filter(key => !activeKeys.has(key));
+
+    try {
+      await setMeta('inactiveTeamKeys', state.inactiveTeamKeys);
+      renderTeamLeaders();
+      renderTeamStatusSettings();
+      showStatus('Active teams saved');
+    } catch (error) {
+      state.inactiveTeamKeys = previousInactiveTeamKeys;
+      renderTeamLeaders();
+      renderTeamStatusSettings();
+      console.error('Failed to save active teams:', error);
+      alert('The active-team settings could not be saved. Please try again.');
+    }
+  }
+
+  async function updateInactiveTeamVisibility() {
+    const previousValue = state.hideInactiveTeamLeaders;
+    state.hideInactiveTeamLeaders = els.hideInactiveTeamsToggle.checked;
+    renderTeamLeaders();
+
+    try {
+      await setMeta('hideInactiveTeamLeaders', state.hideInactiveTeamLeaders);
+      showStatus(state.hideInactiveTeamLeaders ? 'Inactive teams hidden' : 'Inactive teams shown');
+    } catch (error) {
+      state.hideInactiveTeamLeaders = previousValue;
+      renderTeamLeaders();
+      console.error('Failed to save inactive-team visibility:', error);
+      alert('The Best by Team filter could not be saved. Please try again.');
+    }
+  }
+
   function renderManageFilters() {
     fillFranchiseSelect(els.manageFranchise, activeLogos());
   }
@@ -1329,7 +1450,13 @@
       backupVersion: BACKUP_VERSION,
       exportedAt: new Date().toISOString(),
       logos: state.logos,
-      meta: { lastVote: state.lastVote, tiers: state.tiers, franchiseGroups: state.franchiseGroups },
+      meta: {
+        lastVote: state.lastVote,
+        tiers: state.tiers,
+        franchiseGroups: state.franchiseGroups,
+        inactiveTeamKeys: state.inactiveTeamKeys,
+        hideInactiveTeamLeaders: state.hideInactiveTeamLeaders,
+      },
     };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
     const url = URL.createObjectURL(blob);
@@ -1364,6 +1491,8 @@
       await setMeta('lastVote', payload.meta?.lastVote || null);
       await setMeta('tiers', normalizeTiers(payload.meta?.tiers || DEFAULT_TIERS));
       await setMeta('franchiseGroups', normalizeFranchiseGroups(payload.meta?.franchiseGroups || []));
+      await setMeta('inactiveTeamKeys', normalizeInactiveTeamKeys(payload.meta?.inactiveTeamKeys || []));
+      await setMeta('hideInactiveTeamLeaders', Boolean(payload.meta?.hideInactiveTeamLeaders));
       await refreshState();
       generateBattle();
       showStatus('Backup imported successfully');
@@ -1440,6 +1569,10 @@
     els.resetTierSettingsBtn.addEventListener('click', resetTierSettings);
     els.franchiseGroupForm.addEventListener('submit', saveFranchiseGroup);
     els.cancelFranchiseGroupBtn.addEventListener('click', cancelFranchiseGroupEdit);
+    els.teamStatusForm.addEventListener('submit', saveTeamStatusSettings);
+    els.setAllTeamsActiveBtn.addEventListener('click', () => setAllTeamStatusCheckboxes(true));
+    els.setAllTeamsInactiveBtn.addEventListener('click', () => setAllTeamStatusCheckboxes(false));
+    els.hideInactiveTeamsToggle.addEventListener('change', updateInactiveTeamVisibility);
     els.manageSearch.addEventListener('input', renderManageGrid);
     els.manageFranchise.addEventListener('change', renderManageGrid);
 
