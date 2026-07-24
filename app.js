@@ -742,16 +742,48 @@
     });
   }
 
+  function teamCombinedRankings(logos) {
+    const byFranchise = new Map();
+
+    for (const logo of logos) {
+      const franchise = groupedFranchiseName(logo.franchise);
+      const team = byFranchise.get(franchise) || { franchise, wins: 0, losses: 0 };
+      team.wins += Number(logo.wins) || 0;
+      team.losses += Number(logo.losses) || 0;
+      byFranchise.set(franchise, team);
+    }
+
+    return [...byFranchise.values()]
+      .map(team => {
+        const battles = team.wins + team.losses;
+        return {
+          ...team,
+          battles,
+          winPct: battles ? (team.wins / battles) * 100 : 0,
+        };
+      })
+      .sort((a, b) => {
+        const pctDiff = b.winPct - a.winPct;
+        if (pctDiff) return pctDiff;
+        const battlesDiff = b.battles - a.battles;
+        if (battlesDiff) return battlesDiff;
+        const winsDiff = b.wins - a.wins;
+        if (winsDiff) return winsDiff;
+        return a.franchise.localeCompare(b.franchise);
+      });
+  }
+
   function renderGlobalStats(logos) {
-    const ranked = sortRanked(logos);
+    const teamRankings = teamCombinedRankings(logos);
     const totalBattles = logos.reduce((sum, l) => sum + l.wins + l.losses, 0) / 2;
-    const top = ranked[0]?.name || '—';
-    const worst = ranked.length ? ranked[ranked.length - 1].name : '—';
+    const bestTeam = teamRankings[0];
+    const worstTeam = teamRankings.length ? teamRankings[teamRankings.length - 1] : null;
+    const teamStat = team => team ? `${team.franchise} · ${team.winPct.toFixed(1)}%` : '—';
     const cards = [
       ['Active Logos', logos.length],
       ['Total Battles', Math.floor(totalBattles)],
-      ['Current #1', top],
-      ['Lowest Ranked', worst],
+      ['Best Team', teamStat(bestTeam)],
+      ['Worst Team', teamStat(worstTeam)],
     ];
     els.globalStats.innerHTML = cards.map(([label, value]) => `
       <div class="card stat-card">
