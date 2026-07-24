@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NBA Logo Battle</title>
-  <link rel="stylesheet" href="styles.css?v=20260724-compact-leaderboard-stats" />
+  <link rel="stylesheet" href="styles.css?v=20260724-active-team-filter" />
 </head>
 <body>
   <div class="app-shell">
@@ -85,6 +85,10 @@
         <div class="card stack team-leaders-intro">
           <h2>Best Logo by Team</h2>
           <p>The active logo with the highest win percentage for every team. Tied leaders are shown together.</p>
+          <label class="team-leader-visibility">
+            <input id="hideInactiveTeamsToggle" type="checkbox" />
+            <span>Hide inactive teams</span>
+          </label>
         </div>
 
         <div id="teamLeadersGrid" class="team-leaders-grid" aria-live="polite"></div>
@@ -180,6 +184,20 @@
             <div id="franchiseGroupsList" class="franchise-groups-list"></div>
           </div>
         </form>
+        <form id="teamStatusForm" class="card stack team-status-settings">
+          <div>
+            <h2>Active Teams</h2>
+            <p>Choose which teams are currently active. This controls the optional filter in Best by Team; it does not remove logos from battles, the leaderboard, or tiers.</p>
+          </div>
+          <div class="team-status-selection-actions">
+            <button type="button" id="setAllTeamsActiveBtn" class="ghost-btn">Select All</button>
+            <button type="button" id="setAllTeamsInactiveBtn" class="ghost-btn">Clear All</button>
+          </div>
+          <div id="teamStatusOptions" class="team-status-options"></div>
+          <div class="team-status-form-actions">
+            <button type="submit" class="primary-btn">Save Active Teams</button>
+          </div>
+        </form>
         <div class="card stack danger-zone">
           <h2>Danger Zone</h2>
           <p>Reset all active and retired logo stats back to 0–0. Images and franchises stay saved.</p>
@@ -230,6 +248,6 @@
     </button>
   </template>
 
-  <script src="app.js?v=20260724-team-combined-win-rate"></script>
+  <script src="app.js?v=20260724-active-team-filter"></script>
 </body>
 </html>
