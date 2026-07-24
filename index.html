@@ -19,6 +19,7 @@
     <nav class="tabs" aria-label="App sections">
       <button class="tab-btn active" data-tab="battle">Battle</button>
       <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
+      <button class="tab-btn" data-tab="teamLeaders">Best by Team</button>
       <button class="tab-btn" data-tab="tierList">Tier List</button>
       <button class="tab-btn" data-tab="manage">Manage Logos</button>
       <button class="tab-btn" data-tab="backup">Import/Export</button>
@@ -78,6 +79,15 @@
             </table>
           </div>
         </div>
+      </section>
+
+      <section id="teamLeaders" class="tab-panel">
+        <div class="card stack team-leaders-intro">
+          <h2>Best Logo by Team</h2>
+          <p>The active logo with the highest win percentage for every team. Tied leaders are shown together.</p>
+        </div>
+
+        <div id="teamLeadersGrid" class="team-leaders-grid" aria-live="polite"></div>
       </section>
 
       <section id="tierList" class="tab-panel">
