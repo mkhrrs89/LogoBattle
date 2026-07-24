@@ -251,6 +251,44 @@ td { color: var(--text); }
 .logo-actions .full { grid-column: 1 / -1; }
 .logo-actions button { padding: 8px 9px; min-height: 36px; border-radius: 10px; font-size: .9rem; }
 
+.team-leaders-intro { margin-bottom: 16px; }
+.team-leaders-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(290px, 1fr));
+  gap: 14px;
+}
+.team-leader-card {
+  padding: 14px;
+  display: grid;
+  gap: 12px;
+  align-content: start;
+}
+.team-leader-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+}
+.team-leader-header h2 { margin: 0; font-size: 1.1rem; }
+.team-leader-badge {
+  flex: 0 0 auto;
+  padding: 5px 8px;
+  border: 1px solid rgba(22,199,197,.35);
+  border-radius: 999px;
+  background: rgba(22,199,197,.09);
+  color: var(--teal);
+  font-size: .78rem;
+  font-weight: 800;
+}
+.team-leader-logos {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+.team-leader-logo { display: grid; gap: 8px; align-content: start; }
+.team-leader-logo h3 { margin: 0; font-size: 1rem; line-height: 1.2; }
+.team-leader-logo p { margin: 4px 0 0; color: var(--muted); font-size: .88rem; }
+
 .tier-intro { margin-bottom: 16px; }
 .tier-list { display: grid; gap: 12px; }
 .tier-row {
