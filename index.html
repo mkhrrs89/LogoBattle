@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NBA Logo Battle</title>
-  <link rel="stylesheet" href="styles.css?v=20260729-logo-years-v2" />
+  <link rel="stylesheet" href="styles.css?v=20260729-logos-by-year-v1" />
 </head>
 <body>
   <div class="app-shell">
@@ -20,6 +20,7 @@
       <button class="tab-btn active" data-tab="battle">Battle</button>
       <button class="tab-btn" data-tab="leaderboard">Leaderboard</button>
       <button class="tab-btn" data-tab="teamLeaders">Best by Team</button>
+      <button class="tab-btn" data-tab="logosByYear">Logos by Year</button>
       <button class="tab-btn" data-tab="tierList">Tier List</button>
       <button class="tab-btn" data-tab="manage">Manage Logos</button>
       <button class="tab-btn" data-tab="backup">Import/Export</button>
@@ -92,6 +93,22 @@
         </div>
 
         <div id="teamLeadersGrid" class="team-leaders-grid" aria-live="polite"></div>
+      </section>
+
+      <section id="logosByYear" class="tab-panel">
+        <div class="card logos-by-year-intro">
+          <div class="logos-by-year-copy">
+            <h2>Logos by Year</h2>
+            <p>Select a year to see every saved logo whose Start/End range includes it. A range of 97–10 is treated as 1997–2010.</p>
+          </div>
+          <label class="logos-by-year-picker">
+            <span>Year</span>
+            <select id="logoYearSelect" class="input" aria-label="Select a year"></select>
+          </label>
+        </div>
+
+        <div id="logosByYearSummary" class="card logos-by-year-summary" aria-live="polite"></div>
+        <div id="logosByYearGrid" class="logo-grid logos-by-year-grid" aria-live="polite"></div>
       </section>
 
       <section id="tierList" class="tab-panel">
@@ -248,6 +265,6 @@
     </button>
   </template>
 
-  <script src="app.js?v=20260729-logo-years-v2"></script>
+  <script src="app.js?v=20260729-logos-by-year-v1"></script>
 </body>
 </html>
