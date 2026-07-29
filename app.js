@@ -4,7 +4,8 @@
   const DB_NAME = 'nbaLogoBattleDB';
   const DB_VERSION = 1;
   const MAX_SIZE = 800;
-  const BACKUP_VERSION = 4;
+  const BACKUP_VERSION = 5;
+  const LOGO_YEAR_PIVOT = 46;
   const POST_VOTE_INPUT_LOCK_MS = 450;
   const DEFAULT_TIERS = [
     { name: 'SS', min: 100, max: 100 },
@@ -29,6 +30,7 @@
     franchiseGroups: [],
     inactiveTeamKeys: [],
     hideInactiveTeamLeaders: false,
+    selectedLogoYear: null,
   };
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -53,6 +55,9 @@
     leaderboardSearch: $('#leaderboardSearch'),
     leaderboardFranchise: $('#leaderboardFranchise'),
     teamLeadersGrid: $('#teamLeadersGrid'),
+    logoYearSelect: $('#logoYearSelect'),
+    logosByYearSummary: $('#logosByYearSummary'),
+    logosByYearGrid: $('#logosByYearGrid'),
     tierListRows: $('#tierListRows'),
     tierSettingsForm: $('#tierSettingsForm'),
     tierSettingsRows: $('#tierSettingsRows'),
@@ -187,6 +192,7 @@
     state.franchiseGroups = normalizeFranchiseGroups(await getMeta('franchiseGroups', []));
     state.inactiveTeamKeys = normalizeInactiveTeamKeys(await getMeta('inactiveTeamKeys', []));
     state.hideInactiveTeamLeaders = Boolean(await getMeta('hideInactiveTeamLeaders', false));
+    state.selectedLogoYear = normalizeSelectedLogoYear(await getMeta('selectedLogoYear', null));
     renderAll();
   }
 
@@ -592,6 +598,7 @@
     renderLeaderboardFilters();
     renderLeaderboard();
     renderTeamLeaders();
+    renderLogosByYear();
     renderTierList();
     renderTierSettings();
     renderFranchiseGroupSettings();
@@ -606,6 +613,7 @@
     renderLeaderboardFilters();
     renderLeaderboard();
     renderTeamLeaders();
+    renderLogosByYear();
     renderTierList();
     renderTierSettings();
     renderFranchiseGroupSettings();
@@ -905,6 +913,127 @@
       }
 
       els.teamLeadersGrid.appendChild(card);
+    }
+  }
+
+  function normalizeSelectedLogoYear(value) {
+    const year = Number(value);
+    return Number.isInteger(year) && year >= 1900 && year <= 2145 ? year : null;
+  }
+
+  function expandLogoYearRange(logo) {
+    const startValue = normalizeLogoYear(logo.startYear);
+    const endValue = normalizeLogoYear(logo.endYear);
+    if (startValue.length !== 2 || endValue.length !== 2) return null;
+    const startShort = Number(startValue);
+    const endShort = Number(endValue);
+    const startYear = (startShort >= LOGO_YEAR_PIVOT ? 1900 : 2000) + startShort;
+    let endYear = Math.floor(startYear / 100) * 100 + endShort;
+    if (endYear < startYear) endYear += 100;
+    return { startYear, endYear };
+  }
+
+  function logoYearEntries() {
+    return state.logos
+      .map(logo => ({ logo, range: expandLogoYearRange(logo) }))
+      .filter(entry => entry.range);
+  }
+
+  function availableLogoYears(entries) {
+    if (!entries.length) return [];
+    const earliest = Math.min(...entries.map(entry => entry.range.startYear));
+    const latest = Math.max(...entries.map(entry => entry.range.endYear));
+    return Array.from({ length: latest - earliest + 1 }, (_, index) => latest - index);
+  }
+
+  function renderLogosByYear() {
+    if (!els.logoYearSelect || !els.logosByYearSummary || !els.logosByYearGrid) return;
+
+    const entries = logoYearEntries();
+    const years = availableLogoYears(entries);
+    const incompleteCount = state.logos.length - entries.length;
+    els.logoYearSelect.innerHTML = '';
+    els.logosByYearGrid.innerHTML = '';
+  
+    if (!years.length) {
+      els.logoYearSelect.disabled = true;
+      els.logoYearSelect.innerHTML = '<option value="">No years entered</option>';
+      els.logosByYearSummary.innerHTML = '<div><strong>No complete year ranges yet</strong><span>Add both a Start year and End year to logos in Manage Logos.</span></div>';
+      els.logosByYearGrid.innerHTML = '<div class="card stack"><h2>No logos to show</h2><p>Once year ranges are entered, this tab will build the dropdown automatically.</p></div>';
+      return;
+    }
+  
+    els.logoYearSelect.disabled = false;
+    const currentYear = new Date().getFullYear();
+    const selectedYear = years.includes(state.selectedLogoYear)
+      ? state.selectedLogoYear
+      : (years.includes(currentYear) ? currentYear : years[0]);
+    state.selectedLogoYear = selectedYear;
+  
+    for (const year of years) {
+      const option = document.createElement('option');
+      option.value = String(year);
+      option.textContent = String(year);
+      option.selected = year === selectedYear;
+      els.logoYearSelect.appendChild(option);
+    }
+  
+    const matching = entries
+      .filter(entry => selectedYear >= entry.range.startYear && selectedYear <= entry.range.endYear)
+      .sort((a, b) => {
+        const teamDiff = a.logo.franchise.localeCompare(b.logo.franchise);
+        return teamDiff || a.logo.name.localeCompare(b.logo.name);
+      });
+    const teamCount = new Set(matching.map(entry => entry.logo.franchise)).size;
+    const logoLabel = matching.length === 1 ? 'logo' : 'logos';
+    const teamLabel = teamCount === 1 ? 'team' : 'teams';
+  
+    els.logosByYearSummary.innerHTML = `
+      <div class="logos-by-year-count">
+        <strong>${matching.length}</strong>
+        <span>${logoLabel} across ${teamCount} ${teamLabel} in ${selectedYear}</span>
+      </div>
+      ${incompleteCount ? `<span class="logos-by-year-note">${incompleteCount} ${incompleteCount === 1 ? 'logo is' : 'logos are'} omitted until both year fields are filled in.</span>` : ''}
+    `;
+  
+    if (!matching.length) {
+      els.logosByYearGrid.innerHTML = `<div class="card stack"><h2>No logos found for ${selectedYear}</h2><p>Check the Start and End year fields in Manage Logos.</p></div>`;
+      return;
+    }
+  
+    for (const { logo, range } of matching) {
+      const card = document.createElement('article');
+      card.className = 'card logo-card logo-by-year-card';
+      card.innerHTML = `
+        <div class="logo-frame"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>
+        <div>
+          <h3>${escapeHtml(logo.name)}</h3>
+          <p>${escapeHtml(logo.franchise)}</p>
+        </div>
+        <span class="logo-use-range">${range.startYear}–${range.endYear}</span>
+      `;
+      const frame = $('.logo-frame', card);
+      const img = $('img', card);
+      applyLogoFrameShape(frame, logo);
+      img.addEventListener('load', () => applyLoadedImageFrameShape(img), { once: true });
+      els.logosByYearGrid.appendChild(card);
+    }
+  }
+
+  async function updateSelectedLogoYear() {
+    const nextYear = normalizeSelectedLogoYear(els.logoYearSelect.value);
+    if (!nextYear) return;
+    const previousYear = state.selectedLogoYear;
+    state.selectedLogoYear = nextYear;
+    renderLogosByYear();
+    try {
+      await setMeta('selectedLogoYear', nextYear);
+      showStatus(`Showing logos from ${nextYear}`);
+    } catch (error) {
+      state.selectedLogoYear = previousYear;
+      renderLogosByYear();
+      console.error('Failed to save selected logo year:', error);
+      alert('The selected year could not be saved. Please try again.');
     }
   }
 
@@ -1349,6 +1478,7 @@
     };
     await saveLogo(updatedLogo);
     Object.assign(logo, updatedLogo);
+    renderLogosByYear();
     showStatus('Logo years saved');
   }
 
@@ -1512,6 +1642,7 @@
         franchiseGroups: state.franchiseGroups,
         inactiveTeamKeys: state.inactiveTeamKeys,
         hideInactiveTeamLeaders: state.hideInactiveTeamLeaders,
+        selectedLogoYear: state.selectedLogoYear,
       },
     };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -1549,6 +1680,7 @@
       await setMeta('franchiseGroups', normalizeFranchiseGroups(payload.meta?.franchiseGroups || []));
       await setMeta('inactiveTeamKeys', normalizeInactiveTeamKeys(payload.meta?.inactiveTeamKeys || []));
       await setMeta('hideInactiveTeamLeaders', Boolean(payload.meta?.hideInactiveTeamLeaders));
+      await setMeta('selectedLogoYear', normalizeSelectedLogoYear(payload.meta?.selectedLogoYear));
       await refreshState();
       generateBattle();
       showStatus('Backup imported successfully');
@@ -1631,6 +1763,7 @@
     els.setAllTeamsActiveBtn.addEventListener('click', () => setAllTeamStatusCheckboxes(true));
     els.setAllTeamsInactiveBtn.addEventListener('click', () => setAllTeamStatusCheckboxes(false));
     els.hideInactiveTeamsToggle.addEventListener('change', updateInactiveTeamVisibility);
+    els.logoYearSelect?.addEventListener('change', updateSelectedLogoYear);
     els.manageSearch.addEventListener('input', renderManageGrid);
     els.manageFranchise.addEventListener('change', renderManageGrid);
 
