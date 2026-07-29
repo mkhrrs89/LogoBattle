@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>NBA Logo Battle</title>
-  <link rel="stylesheet" href="styles.css?v=20260729-team-logo-pages-v1" />
+  <link rel="stylesheet" href="styles.css?v=20260729-team-logo-sort-v1" />
 </head>
 <body>
   <div class="app-shell">
@@ -104,10 +104,19 @@
               <p id="teamLogoPageSummary"></p>
             </div>
           </div>
-          <label class="logos-by-year-view-toggle">
-            <input id="logoOnlyTeamToggle" type="checkbox" />
-            <span>Logo-only view</span>
-          </label>
+          <div class="team-logo-page-controls">
+            <label class="team-logo-sort-picker">
+              <span>Sort by</span>
+              <select id="teamLogoSort" class="input" aria-label="Sort team logos">
+                <option value="winPct">Win % (highest first)</option>
+                <option value="date">Date (oldest first)</option>
+              </select>
+            </label>
+            <label class="logos-by-year-view-toggle">
+              <input id="logoOnlyTeamToggle" type="checkbox" />
+              <span>Logo-only view</span>
+            </label>
+          </div>
         </div>
         <div id="teamLogoGrid" class="logo-grid team-logo-grid" aria-live="polite"></div>
       </section>
@@ -288,6 +297,6 @@
     </button>
   </template>
 
-  <script src="app.js?v=20260729-team-logo-pages-v1"></script>
+  <script src="app.js?v=20260729-team-logo-sort-v1"></script>
 </body>
 </html>
