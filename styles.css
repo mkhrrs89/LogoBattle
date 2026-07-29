@@ -393,6 +393,21 @@ td { color: var(--text); }
 .team-logo-page-copy { display: flex; align-items: flex-start; gap: 16px; }
 .team-logo-page-copy h2 { margin: 0 0 4px; }
 .team-logo-page-copy p { margin: 0; color: var(--muted); }
+.team-logo-page-controls {
+  display: flex;
+  align-items: flex-end;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.team-logo-sort-picker {
+  display: grid;
+  gap: 6px;
+  color: var(--muted);
+  font-size: .82rem;
+  font-weight: 800;
+}
+.team-logo-sort-picker .input { min-width: 190px; }
 .team-logo-metadata { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .team-logo-grid.logo-only {
   grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
@@ -656,6 +671,7 @@ td { color: var(--text); }
   .logos-by-year-grid.logo-only { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
   .team-logo-page-header { align-items: flex-start; flex-direction: column; }
   .team-logo-page-copy { flex-direction: column; gap: 12px; }
+  .team-logo-page-controls { width: 100%; justify-content: space-between; }
   .team-logo-grid.logo-only { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
 }
 
