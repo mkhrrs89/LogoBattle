@@ -4,7 +4,7 @@
   const DB_NAME = 'nbaLogoBattleDB';
   const DB_VERSION = 1;
   const MAX_SIZE = 800;
-  const BACKUP_VERSION = 3;
+  const BACKUP_VERSION = 4;
   const POST_VOTE_INPUT_LOCK_MS = 450;
   const DEFAULT_TIERS = [
     { name: 'SS', min: 100, max: 100 },
@@ -415,6 +415,8 @@
           width: resized.width,
           height: resized.height,
           compressedSize: resized.size,
+          startYear: '',
+          endYear: '',
           wins: 0,
           losses: 0,
           retired: false,
@@ -1270,12 +1272,43 @@
         <p>${escapeHtml(logo.franchise)}</p>
         <p>${logo.wins}–${logo.losses} · ${winPct(logo)}% · ${logo.wins + logo.losses} battles</p>
       </div>
+      <div class="logo-years" aria-label="Years this logo was used">
+        <label class="logo-year-field">
+          <span>Start year</span>
+          <input class="input logo-year-input" type="text" inputmode="numeric" maxlength="2" pattern="[0-9]{0,2}" autocomplete="off" data-year-field="startYear" value="${escapeHtml(normalizeLogoYear(logo.startYear))}" placeholder="YY" aria-label="Starting year of use for ${escapeHtml(logo.name)}" />
+        </label>
+        <label class="logo-year-field">
+          <span>End year</span>
+          <input class="input logo-year-input" type="text" inputmode="numeric" maxlength="2" pattern="[0-9]{0,2}" autocomplete="off" data-year-field="endYear" value="${escapeHtml(normalizeLogoYear(logo.endYear))}" placeholder="YY" aria-label="Ending year of use for ${escapeHtml(logo.name)}" />
+        </label>
+      </div>
       <div class="logo-actions"></div>
     `;
     const frame = $('.logo-frame', card);
     const img = $('img', card);
     applyLogoFrameShape(frame, logo);
     img.addEventListener('load', () => applyLoadedImageFrameShape(img), { once: true });
+
+    $$('.logo-year-input', card).forEach(input => {
+      input.addEventListener('input', () => {
+        input.value = normalizeLogoYear(input.value);
+      });
+      input.addEventListener('change', async () => {
+        const previousValue = normalizeLogoYear(logo[input.dataset.yearField]);
+        const nextValue = normalizeLogoYear(input.value);
+        input.value = nextValue;
+        input.disabled = true;
+        try {
+          await saveLogoYear(logo.id, input.dataset.yearField, nextValue);
+        } catch (error) {
+          input.value = previousValue;
+          console.error('Failed to save logo year:', error);
+          alert('The logo year could not be saved. Please try again.');
+        } finally {
+          input.disabled = false;
+        }
+      });
+    });
 
     const actions = $('.logo-actions', card);
 
@@ -1294,6 +1327,25 @@
       button('Reset Stats', 'danger-btn full', () => resetLogoStats(logo.id)),
     );
     return card;
+  }
+
+  function normalizeLogoYear(value) {
+    return String(value ?? '').replace(/\D/g, '').slice(0, 2);
+  }
+
+  async function saveLogoYear(logoId, field, value) {
+    if (field !== 'startYear' && field !== 'endYear') return;
+
+    const logo = state.logos.find(item => item.id === logoId);
+    if (!logo) return;
+
+    const normalizedValue = normalizeLogoYear(value);
+    if (normalizeLogoYear(logo[field]) === normalizedValue) return;
+
+    logo[field] = normalizedValue;
+    logo.updatedAt = new Date().toISOString();
+    await saveLogo(logo);
+    showStatus('Logo years saved');
   }
 
   function promptReplaceImage(logoId) {
@@ -1517,6 +1569,8 @@
       width: logo.width || null,
       height: logo.height || null,
       compressedSize: logo.compressedSize || null,
+      startYear: normalizeLogoYear(logo.startYear),
+      endYear: normalizeLogoYear(logo.endYear),
       wins: Number.isFinite(logo.wins) ? logo.wins : 0,
       losses: Number.isFinite(logo.losses) ? logo.losses : 0,
       retired: Boolean(logo.retired),
