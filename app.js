@@ -1342,9 +1342,13 @@
     const normalizedValue = normalizeLogoYear(value);
     if (normalizeLogoYear(logo[field]) === normalizedValue) return;
 
-    logo[field] = normalizedValue;
-    logo.updatedAt = new Date().toISOString();
-    await saveLogo(logo);
+    const updatedLogo = {
+      ...logo,
+      [field]: normalizedValue,
+      updatedAt: new Date().toISOString(),
+    };
+    await saveLogo(updatedLogo);
+    Object.assign(logo, updatedLogo);
     showStatus('Logo years saved');
   }
 
