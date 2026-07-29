@@ -566,3 +566,55 @@ td { color: var(--text); }
   .logo-grid, .team-leaders-grid { grid-template-columns: 1fr 1fr; }
   .logo-actions { grid-template-columns: 1fr; }
 }
+
+.logos-by-year-controls {
+  display: flex;
+  align-items: end;
+  justify-content: flex-end;
+  gap: 14px;
+  flex-wrap: wrap;
+}
+.logos-by-year-view-toggle {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  min-height: 42px;
+  color: var(--text);
+  font-weight: 800;
+  cursor: pointer;
+}
+.logos-by-year-view-toggle input {
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  accent-color: var(--teal);
+}
+.logos-by-year-grid.logo-only {
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 0;
+  padding: 16px;
+  background: #fff;
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+}
+.logo-only-year-item {
+  min-width: 0;
+  background: #fff;
+}
+.logo-only-year-item .logo-frame {
+  border: 0;
+  border-radius: 0;
+}
+.logo-only-year-item .logo-frame img {
+  max-width: 88%;
+  max-height: 88%;
+}
+
+@media (max-width: 760px) {
+  .logos-by-year-controls { justify-content: flex-start; }
+  .logos-by-year-grid.logo-only { grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); }
+}
+
+@media (max-width: 440px) {
+  .logos-by-year-grid.logo-only { grid-template-columns: 1fr 1fr; padding: 10px; }
+}
