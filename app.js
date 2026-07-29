@@ -31,6 +31,7 @@
     inactiveTeamKeys: [],
     hideInactiveTeamLeaders: false,
     selectedLogoYear: null,
+    logoOnlyYearView: false,
   };
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -56,6 +57,7 @@
     leaderboardFranchise: $('#leaderboardFranchise'),
     teamLeadersGrid: $('#teamLeadersGrid'),
     logoYearSelect: $('#logoYearSelect'),
+    logoOnlyYearToggle: $('#logoOnlyYearToggle'),
     logosByYearSummary: $('#logosByYearSummary'),
     logosByYearGrid: $('#logosByYearGrid'),
     tierListRows: $('#tierListRows'),
@@ -193,6 +195,7 @@
     state.inactiveTeamKeys = normalizeInactiveTeamKeys(await getMeta('inactiveTeamKeys', []));
     state.hideInactiveTeamLeaders = Boolean(await getMeta('hideInactiveTeamLeaders', false));
     state.selectedLogoYear = normalizeSelectedLogoYear(await getMeta('selectedLogoYear', null));
+    state.logoOnlyYearView = Boolean(await getMeta('logoOnlyYearView', false));
     renderAll();
   }
 
@@ -947,7 +950,11 @@
   }
 
   function renderLogosByYear() {
-    if (!els.logoYearSelect || !els.logosByYearSummary || !els.logosByYearGrid) return;
+    if (!els.logoYearSelect || !els.logoOnlyYearToggle || !els.logosByYearSummary || !els.logosByYearGrid) return;
+
+    els.logoOnlyYearToggle.checked = state.logoOnlyYearView;
+    els.logosByYearSummary.classList.toggle('hidden', state.logoOnlyYearView);
+    els.logosByYearGrid.classList.toggle('logo-only', state.logoOnlyYearView);
 
     const entries = logoYearEntries();
     const years = availableLogoYears(entries);
@@ -1003,20 +1010,39 @@
   
     for (const { logo, range } of matching) {
       const card = document.createElement('article');
-      card.className = 'card logo-card logo-by-year-card';
-      card.innerHTML = `
-        <div class="logo-frame"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>
-        <div>
-          <h3>${escapeHtml(logo.name)}</h3>
-          <p>${escapeHtml(logo.franchise)}</p>
-        </div>
-        <span class="logo-use-range">${range.startYear}–${range.endYear}</span>
-      `;
+      card.className = state.logoOnlyYearView
+        ? 'logo-only-year-item'
+        : 'card logo-card logo-by-year-card';
+      card.innerHTML = state.logoOnlyYearView
+        ? `<div class="logo-frame"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>`
+        : `
+          <div class="logo-frame"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>
+          <div>
+            <h3>${escapeHtml(logo.name)}</h3>
+            <p>${escapeHtml(logo.franchise)}</p>
+          </div>
+          <span class="logo-use-range">${range.startYear}–${range.endYear}</span>
+        `;
       const frame = $('.logo-frame', card);
       const img = $('img', card);
       applyLogoFrameShape(frame, logo);
       img.addEventListener('load', () => applyLoadedImageFrameShape(img), { once: true });
       els.logosByYearGrid.appendChild(card);
+    }
+  }
+
+  async function updateLogoOnlyYearView() {
+    const previousValue = state.logoOnlyYearView;
+    state.logoOnlyYearView = els.logoOnlyYearToggle.checked;
+    renderLogosByYear();
+    try {
+      await setMeta('logoOnlyYearView', state.logoOnlyYearView);
+      showStatus(state.logoOnlyYearView ? 'Logo-only view on' : 'Detailed view on');
+    } catch (error) {
+      state.logoOnlyYearView = previousValue;
+      renderLogosByYear();
+      console.error('Failed to save Logos by Year view:', error);
+      alert('The view setting could not be saved. Please try again.');
     }
   }
 
@@ -1643,6 +1669,7 @@
         inactiveTeamKeys: state.inactiveTeamKeys,
         hideInactiveTeamLeaders: state.hideInactiveTeamLeaders,
         selectedLogoYear: state.selectedLogoYear,
+        logoOnlyYearView: state.logoOnlyYearView,
       },
     };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -1681,6 +1708,7 @@
       await setMeta('inactiveTeamKeys', normalizeInactiveTeamKeys(payload.meta?.inactiveTeamKeys || []));
       await setMeta('hideInactiveTeamLeaders', Boolean(payload.meta?.hideInactiveTeamLeaders));
       await setMeta('selectedLogoYear', normalizeSelectedLogoYear(payload.meta?.selectedLogoYear));
+      await setMeta('logoOnlyYearView', Boolean(payload.meta?.logoOnlyYearView));
       await refreshState();
       generateBattle();
       showStatus('Backup imported successfully');
@@ -1764,6 +1792,7 @@
     els.setAllTeamsInactiveBtn.addEventListener('click', () => setAllTeamStatusCheckboxes(false));
     els.hideInactiveTeamsToggle.addEventListener('change', updateInactiveTeamVisibility);
     els.logoYearSelect?.addEventListener('change', updateSelectedLogoYear);
+    els.logoOnlyYearToggle?.addEventListener('change', updateLogoOnlyYearView);
     els.manageSearch.addEventListener('input', renderManageGrid);
     els.manageFranchise.addEventListener('change', renderManageGrid);
 
