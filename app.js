@@ -32,6 +32,8 @@
     hideInactiveTeamLeaders: false,
     selectedLogoYear: null,
     logoOnlyYearView: false,
+    selectedTeamLogoPage: null,
+    logoOnlyTeamView: false,
   };
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -56,6 +58,12 @@
     leaderboardSearch: $('#leaderboardSearch'),
     leaderboardFranchise: $('#leaderboardFranchise'),
     teamLeadersGrid: $('#teamLeadersGrid'),
+    teamLogosPanel: $('#teamLogos'),
+    backToTeamLeadersBtn: $('#backToTeamLeadersBtn'),
+    teamLogoPageTitle: $('#teamLogoPageTitle'),
+    teamLogoPageSummary: $('#teamLogoPageSummary'),
+    logoOnlyTeamToggle: $('#logoOnlyTeamToggle'),
+    teamLogoGrid: $('#teamLogoGrid'),
     logoYearSelect: $('#logoYearSelect'),
     logoOnlyYearToggle: $('#logoOnlyYearToggle'),
     logosByYearSummary: $('#logosByYearSummary'),
@@ -196,6 +204,7 @@
     state.hideInactiveTeamLeaders = Boolean(await getMeta('hideInactiveTeamLeaders', false));
     state.selectedLogoYear = normalizeSelectedLogoYear(await getMeta('selectedLogoYear', null));
     state.logoOnlyYearView = Boolean(await getMeta('logoOnlyYearView', false));
+    state.logoOnlyTeamView = Boolean(await getMeta('logoOnlyTeamView', false));
     renderAll();
   }
 
@@ -601,6 +610,7 @@
     renderLeaderboardFilters();
     renderLeaderboard();
     renderTeamLeaders();
+    renderTeamLogoPage();
     renderLogosByYear();
     renderTierList();
     renderTierSettings();
@@ -616,6 +626,7 @@
     renderLeaderboardFilters();
     renderLeaderboard();
     renderTeamLeaders();
+    renderTeamLogoPage();
     renderLogosByYear();
     renderTierList();
     renderTierSettings();
@@ -887,6 +898,9 @@
       const teamActive = isTeamActive(franchise);
       const card = document.createElement('section');
       card.className = `card team-leader-card${teamActive ? '' : ' inactive-team'}`;
+      card.tabIndex = 0;
+      card.setAttribute('role', 'button');
+      card.setAttribute('aria-label', `View all ${franchise} logos`);
       card.innerHTML = `
         <div class="team-leader-header">
           <h2>${escapeHtml(franchise)}</h2>
@@ -915,7 +929,96 @@
         logoWrap.appendChild(item);
       }
 
+      card.addEventListener('click', () => openTeamLogoPage(franchise));
+      card.addEventListener('keydown', event => {
+        if (event.key !== 'Enter' && event.key !== ' ') return;
+        event.preventDefault();
+        openTeamLogoPage(franchise);
+      });
       els.teamLeadersGrid.appendChild(card);
+    }
+  }
+
+  function showPanel(panelId, activeTabId = null) {
+    els.panels.forEach(panel => panel.classList.toggle('active', panel.id === panelId));
+    els.tabButtons.forEach(button => button.classList.toggle('active', button.dataset.tab === activeTabId));
+  }
+
+  function openTeamLogoPage(franchise) {
+    state.selectedTeamLogoPage = franchise;
+    renderTeamLogoPage();
+    showPanel('teamLogos');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function closeTeamLogoPage() {
+    state.selectedTeamLogoPage = null;
+    showPanel('teamLeaders', 'teamLeaders');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+
+  function renderTeamLogoPage() {
+    if (!els.teamLogoGrid || !els.logoOnlyTeamToggle) return;
+
+    const franchise = state.selectedTeamLogoPage;
+    els.logoOnlyTeamToggle.checked = state.logoOnlyTeamView;
+    els.teamLogoGrid.classList.toggle('logo-only', state.logoOnlyTeamView);
+    els.teamLogoGrid.innerHTML = '';
+
+    if (!franchise) return;
+
+    const logos = sortRanked(state.logos.filter(logo => groupedFranchiseName(logo.franchise) === franchise));
+    els.teamLogoPageTitle.textContent = franchise;
+    els.teamLogoPageSummary.textContent = `${logos.length} ${logos.length === 1 ? 'logo' : 'logos'} across this franchise’s history.`;
+
+    if (!logos.length) {
+      els.teamLogoGrid.innerHTML = '<div class="card stack"><h2>No logos found</h2><p>This franchise does not currently have any saved logos.</p></div>';
+      return;
+    }
+
+    for (const logo of logos) {
+      const card = document.createElement('article');
+      card.className = state.logoOnlyTeamView
+        ? 'logo-only-team-item'
+        : 'card logo-card team-logo-card';
+      const expandedRange = expandLogoYearRange(logo);
+      const yearRange = expandedRange
+        ? `<span class="logo-use-range">${expandedRange.startYear}–${expandedRange.endYear}</span>`
+        : '';
+      card.innerHTML = state.logoOnlyTeamView
+        ? `<div class="logo-frame"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>`
+        : `
+          <div class="logo-frame"><img src="${logo.imageDataUrl}" alt="${escapeHtml(logo.name)}"></div>
+          <div>
+            <h3>${escapeHtml(logo.name)}</h3>
+            <p>${escapeHtml(logo.franchise)}</p>
+            <p>${logo.wins}–${logo.losses} · ${winPct(logo)}% · ${logo.wins + logo.losses} battles</p>
+          </div>
+          <div class="team-logo-metadata">
+            ${yearRange}
+            ${logo.retired ? '<span class="team-status-badge">Retired</span>' : ''}
+          </div>
+        `;
+      const frame = $('.logo-frame', card);
+      const img = $('img', card);
+      applyLogoFrameShape(frame, logo);
+      img.addEventListener('load', () => applyLoadedImageFrameShape(img), { once: true });
+      els.teamLogoGrid.appendChild(card);
+    }
+  }
+
+  async function updateLogoOnlyTeamView() {
+    const previousValue = state.logoOnlyTeamView;
+    state.logoOnlyTeamView = els.logoOnlyTeamToggle.checked;
+    renderTeamLogoPage();
+    try {
+      await setMeta('logoOnlyTeamView', state.logoOnlyTeamView);
+      showStatus(state.logoOnlyTeamView ? 'Logo-only view on' : 'Detailed view on');
+    } catch (error) {
+      state.logoOnlyTeamView = previousValue;
+      renderTeamLogoPage();
+      console.error('Failed to save team logo view:', error);
+      alert('The team logo view could not be saved. Please try again.');
     }
   }
 
@@ -1670,6 +1773,7 @@
         hideInactiveTeamLeaders: state.hideInactiveTeamLeaders,
         selectedLogoYear: state.selectedLogoYear,
         logoOnlyYearView: state.logoOnlyYearView,
+        logoOnlyTeamView: state.logoOnlyTeamView,
       },
     };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -1709,6 +1813,7 @@
       await setMeta('hideInactiveTeamLeaders', Boolean(payload.meta?.hideInactiveTeamLeaders));
       await setMeta('selectedLogoYear', normalizeSelectedLogoYear(payload.meta?.selectedLogoYear));
       await setMeta('logoOnlyYearView', Boolean(payload.meta?.logoOnlyYearView));
+      await setMeta('logoOnlyTeamView', Boolean(payload.meta?.logoOnlyTeamView));
       await refreshState();
       generateBattle();
       showStatus('Backup imported successfully');
@@ -1755,8 +1860,8 @@
   function bindEvents() {
     els.tabButtons.forEach(btn => {
       btn.addEventListener('click', () => {
-        els.tabButtons.forEach(b => b.classList.toggle('active', b === btn));
-        els.panels.forEach(panel => panel.classList.toggle('active', panel.id === btn.dataset.tab));
+        state.selectedTeamLogoPage = null;
+        showPanel(btn.dataset.tab, btn.dataset.tab);
         if (btn.dataset.tab === 'battle') ensureBattle();
       });
     });
@@ -1791,6 +1896,8 @@
     els.setAllTeamsActiveBtn.addEventListener('click', () => setAllTeamStatusCheckboxes(true));
     els.setAllTeamsInactiveBtn.addEventListener('click', () => setAllTeamStatusCheckboxes(false));
     els.hideInactiveTeamsToggle.addEventListener('change', updateInactiveTeamVisibility);
+    els.backToTeamLeadersBtn?.addEventListener('click', closeTeamLogoPage);
+    els.logoOnlyTeamToggle?.addEventListener('change', updateLogoOnlyTeamView);
     els.logoYearSelect?.addEventListener('change', updateSelectedLogoYear);
     els.logoOnlyYearToggle?.addEventListener('change', updateLogoOnlyYearView);
     els.manageSearch.addEventListener('input', renderManageGrid);
