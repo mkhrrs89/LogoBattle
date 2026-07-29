@@ -4,7 +4,7 @@
   const DB_NAME = 'nbaLogoBattleDB';
   const DB_VERSION = 1;
   const MAX_SIZE = 800;
-  const BACKUP_VERSION = 5;
+  const BACKUP_VERSION = 6;
   const LOGO_YEAR_PIVOT = 46;
   const POST_VOTE_INPUT_LOCK_MS = 450;
   const DEFAULT_TIERS = [
@@ -34,6 +34,7 @@
     logoOnlyYearView: false,
     selectedTeamLogoPage: null,
     logoOnlyTeamView: false,
+    teamLogoSort: 'winPct',
   };
 
   const $ = (sel, root = document) => root.querySelector(sel);
@@ -63,6 +64,7 @@
     teamLogoPageTitle: $('#teamLogoPageTitle'),
     teamLogoPageSummary: $('#teamLogoPageSummary'),
     logoOnlyTeamToggle: $('#logoOnlyTeamToggle'),
+    teamLogoSort: $('#teamLogoSort'),
     teamLogoGrid: $('#teamLogoGrid'),
     logoYearSelect: $('#logoYearSelect'),
     logoOnlyYearToggle: $('#logoOnlyYearToggle'),
@@ -205,6 +207,7 @@
     state.selectedLogoYear = normalizeSelectedLogoYear(await getMeta('selectedLogoYear', null));
     state.logoOnlyYearView = Boolean(await getMeta('logoOnlyYearView', false));
     state.logoOnlyTeamView = Boolean(await getMeta('logoOnlyTeamView', false));
+    state.teamLogoSort = normalizeTeamLogoSort(await getMeta('teamLogoSort', 'winPct'));
     renderAll();
   }
 
@@ -958,16 +961,18 @@
   }
 
   function renderTeamLogoPage() {
-    if (!els.teamLogoGrid || !els.logoOnlyTeamToggle) return;
+    if (!els.teamLogoGrid || !els.logoOnlyTeamToggle || !els.teamLogoSort) return;
 
     const franchise = state.selectedTeamLogoPage;
     els.logoOnlyTeamToggle.checked = state.logoOnlyTeamView;
+    els.teamLogoSort.value = state.teamLogoSort;
     els.teamLogoGrid.classList.toggle('logo-only', state.logoOnlyTeamView);
     els.teamLogoGrid.innerHTML = '';
 
     if (!franchise) return;
 
-    const logos = sortRanked(state.logos.filter(logo => groupedFranchiseName(logo.franchise) === franchise));
+    const teamLogos = state.logos.filter(logo => groupedFranchiseName(logo.franchise) === franchise);
+    const logos = sortTeamLogos(teamLogos, state.teamLogoSort);
     els.teamLogoPageTitle.textContent = franchise;
     els.teamLogoPageSummary.textContent = `${logos.length} ${logos.length === 1 ? 'logo' : 'logos'} across this franchise’s history.`;
 
@@ -1004,6 +1009,43 @@
       applyLogoFrameShape(frame, logo);
       img.addEventListener('load', () => applyLoadedImageFrameShape(img), { once: true });
       els.teamLogoGrid.appendChild(card);
+    }
+  }
+
+  function normalizeTeamLogoSort(value) {
+    return value === 'date' ? 'date' : 'winPct';
+  }
+
+  function sortTeamLogos(logos, sortBy) {
+    if (normalizeTeamLogoSort(sortBy) === 'winPct') return sortRanked(logos);
+
+    return [...logos].sort((a, b) => {
+      const aRange = expandLogoYearRange(a);
+      const bRange = expandLogoYearRange(b);
+      if (aRange && !bRange) return -1;
+      if (!aRange && bRange) return 1;
+      if (aRange && bRange) {
+        const startDiff = aRange.startYear - bRange.startYear;
+        if (startDiff) return startDiff;
+        const endDiff = aRange.endYear - bRange.endYear;
+        if (endDiff) return endDiff;
+      }
+      return a.name.localeCompare(b.name);
+    });
+  }
+
+  async function updateTeamLogoSort() {
+    const previousValue = state.teamLogoSort;
+    state.teamLogoSort = normalizeTeamLogoSort(els.teamLogoSort.value);
+    renderTeamLogoPage();
+    try {
+      await setMeta('teamLogoSort', state.teamLogoSort);
+      showStatus(state.teamLogoSort === 'date' ? 'Sorted by date' : 'Sorted by win percentage');
+    } catch (error) {
+      state.teamLogoSort = previousValue;
+      renderTeamLogoPage();
+      console.error('Failed to save team logo sort:', error);
+      alert('The team logo sort could not be saved. Please try again.');
     }
   }
 
@@ -1774,6 +1816,7 @@
         selectedLogoYear: state.selectedLogoYear,
         logoOnlyYearView: state.logoOnlyYearView,
         logoOnlyTeamView: state.logoOnlyTeamView,
+        teamLogoSort: state.teamLogoSort,
       },
     };
     const blob = new Blob([JSON.stringify(payload)], { type: 'application/json' });
@@ -1814,6 +1857,7 @@
       await setMeta('selectedLogoYear', normalizeSelectedLogoYear(payload.meta?.selectedLogoYear));
       await setMeta('logoOnlyYearView', Boolean(payload.meta?.logoOnlyYearView));
       await setMeta('logoOnlyTeamView', Boolean(payload.meta?.logoOnlyTeamView));
+      await setMeta('teamLogoSort', normalizeTeamLogoSort(payload.meta?.teamLogoSort));
       await refreshState();
       generateBattle();
       showStatus('Backup imported successfully');
@@ -1898,6 +1942,7 @@
     els.hideInactiveTeamsToggle.addEventListener('change', updateInactiveTeamVisibility);
     els.backToTeamLeadersBtn?.addEventListener('click', closeTeamLogoPage);
     els.logoOnlyTeamToggle?.addEventListener('change', updateLogoOnlyTeamView);
+    els.teamLogoSort?.addEventListener('change', updateTeamLogoSort);
     els.logoYearSelect?.addEventListener('change', updateSelectedLogoYear);
     els.logoOnlyYearToggle?.addEventListener('change', updateLogoOnlyYearView);
     els.manageSearch.addEventListener('input', renderManageGrid);
