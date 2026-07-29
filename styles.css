@@ -264,6 +264,21 @@ td { color: var(--text); }
 .logo-card { padding: 12px; display: grid; gap: 10px; }
 .logo-card h3 { margin: 0; font-size: 1rem; line-height: 1.2; }
 .logo-card p { margin: 0; color: var(--muted); font-size: .9rem; }
+.logo-years { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 8px; }
+.logo-year-field { display: grid; gap: 5px; min-width: 0; }
+.logo-year-field span {
+  color: var(--muted);
+  font-size: .78rem;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+.logo-year-input {
+  width: 100%;
+  min-width: 0;
+  padding: 8px 9px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
 .logo-actions { display: grid; gap: 8px; grid-template-columns: repeat(2, 1fr); }
 .logo-actions .full { grid-column: 1 / -1; }
 .logo-actions button { padding: 8px 9px; min-height: 36px; border-radius: 10px; font-size: .9rem; }
