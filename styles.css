@@ -283,6 +283,35 @@ td { color: var(--text); }
 .logo-actions .full { grid-column: 1 / -1; }
 .logo-actions button { padding: 8px 9px; min-height: 36px; border-radius: 10px; font-size: .9rem; }
 
+.logos-by-year-intro {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 18px;
+  padding: 16px;
+  margin-bottom: 12px;
+}
+.logos-by-year-copy { display: grid; gap: 5px; }
+.logos-by-year-copy h2, .logos-by-year-copy p { margin: 0; }
+.logos-by-year-picker { display: grid; gap: 6px; min-width: 150px; color: var(--muted); font-size: .82rem; font-weight: 800; }
+.logos-by-year-picker .input { width: 100%; }
+.logos-by-year-summary { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 11px 14px; margin-bottom: 14px; }
+.logos-by-year-summary > div { display: flex; align-items: baseline; gap: 8px; }
+.logos-by-year-summary strong { font-size: 1.25rem; }
+.logos-by-year-summary span { color: var(--muted); }
+.logos-by-year-note { font-size: .82rem; text-align: right; }
+.logo-by-year-card { align-content: start; }
+.logo-use-range {
+  justify-self: start;
+  width: max-content;
+  padding: 5px 8px;
+  border: 1px solid rgba(22,199,197,.35);
+  border-radius: 999px;
+  background: rgba(22,199,197,.09);
+  color: var(--teal);
+  font-size: .78rem;
+  font-weight: 800;
+}
 .team-leaders-intro { margin-bottom: 16px; }
 .team-leader-visibility {
   display: flex;
@@ -517,6 +546,8 @@ td { color: var(--text); }
   .save-status { align-self: stretch; }
   .tabs { border-radius: 16px; }
   .battle-toolbar { align-items: stretch; flex-direction: column; }
+  .logos-by-year-intro, .logos-by-year-summary { align-items: stretch; flex-direction: column; }
+  .logos-by-year-note { text-align: left; }
   .toolbar-actions { justify-content: stretch; }
   .toolbar-actions button { flex: 1 1 auto; }
   .battle-grid, .two-col, .tier-row { grid-template-columns: 1fr; }
