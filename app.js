@@ -671,9 +671,14 @@
   }
 
   const battleLogoFitCache = new Map();
-  const BATTLE_LOGO_FIT_CACHE_LIMIT = 24;
+  const BATTLE_LOGO_FIT_CACHE_LIMIT = 16;
+  const BATTLE_LOGO_ANALYSIS_MAX_SIDE = 320;
+  const BATTLE_LOGO_CROP_THRESHOLD = 0.82;
+  const BATTLE_LOGO_EDGE_TRIM_RATIO = 0.006;
+  const BATTLE_LOGO_CROP_PADDING_RATIO = 0.04;
 
   function median(values) {
+    if (!values.length) return 0;
     const sorted = [...values].sort((a, b) => a - b);
     return sorted[Math.floor(sorted.length / 2)];
   }
@@ -687,100 +692,161 @@
     });
   }
 
-  async function measureBattleLogoFit(src) {
-    const image = await loadLogoImage(src);
-    const width = image.naturalWidth;
-    const height = image.naturalHeight;
-    if (!width || !height) return { scale: 1, translateX: 0, translateY: 0 };
+  function battleLogoBackground(pixels, width, height) {
+    const indexes = [];
+    for (let x = 0; x < width; x += 1) {
+      indexes.push(x * 4);
+      indexes.push((((height - 1) * width) + x) * 4);
+    }
+    for (let y = 1; y < height - 1; y += 1) {
+      indexes.push((y * width) * 4);
+      indexes.push(((y * width) + width - 1) * 4);
+    }
 
-    const canvas = document.createElement('canvas');
-    canvas.width = width;
-    canvas.height = height;
-    const context = canvas.getContext('2d', { willReadFrequently: true });
-    context.drawImage(image, 0, 0);
-    const pixels = context.getImageData(0, 0, width, height).data;
+    const alpha = median(indexes.map(index => pixels[index + 3]));
+    if (alpha < 32) return { r: 0, g: 0, b: 0, a: alpha, transparent: true };
 
-    const cornerIndexes = [
-      0,
-      (width - 1) * 4,
-      (height - 1) * width * 4,
-      ((height * width) - 1) * 4,
-    ];
-    const background = {
-      r: median(cornerIndexes.map(index => pixels[index])),
-      g: median(cornerIndexes.map(index => pixels[index + 1])),
-      b: median(cornerIndexes.map(index => pixels[index + 2])),
-      a: median(cornerIndexes.map(index => pixels[index + 3])),
+    const opaqueIndexes = indexes.filter(index => pixels[index + 3] >= 32);
+    return {
+      r: median(opaqueIndexes.map(index => pixels[index])),
+      g: median(opaqueIndexes.map(index => pixels[index + 1])),
+      b: median(opaqueIndexes.map(index => pixels[index + 2])),
+      a: alpha,
+      transparent: false,
     };
+  }
 
-    const rowCounts = new Uint32Array(height);
-    const columnCounts = new Uint32Array(width);
-    const transparentBackground = background.a < 32;
+  function weightedProjectionBounds(weights, trimRatio) {
+    const total = weights.reduce((sum, weight) => sum + weight, 0);
+    if (total <= 0) return null;
+
+    const trimWeight = total * trimRatio;
+    let start = 0;
+    let startWeight = 0;
+    while (start < weights.length - 1 && startWeight + weights[start] <= trimWeight) {
+      startWeight += weights[start];
+      start += 1;
+    }
+
+    let end = weights.length - 1;
+    let endWeight = 0;
+    while (end > start && endWeight + weights[end] <= trimWeight) {
+      endWeight += weights[end];
+      end -= 1;
+    }
+
+    return { start, end };
+  }
+
+  async function createBattleLogoDisplaySource(src) {
+    const image = await loadLogoImage(src);
+    const naturalWidth = image.naturalWidth;
+    const naturalHeight = image.naturalHeight;
+    if (!naturalWidth || !naturalHeight) return src;
+
+    const analysisScale = Math.min(
+      1,
+      BATTLE_LOGO_ANALYSIS_MAX_SIDE / Math.max(naturalWidth, naturalHeight)
+    );
+    const width = Math.max(1, Math.round(naturalWidth * analysisScale));
+    const height = Math.max(1, Math.round(naturalHeight * analysisScale));
+    const analysisCanvas = document.createElement('canvas');
+    analysisCanvas.width = width;
+    analysisCanvas.height = height;
+    const context = analysisCanvas.getContext('2d', { willReadFrequently: true });
+    if (!context) return src;
+
+    context.clearRect(0, 0, width, height);
+    context.drawImage(image, 0, 0, width, height);
+    const pixels = context.getImageData(0, 0, width, height).data;
+    const background = battleLogoBackground(pixels, width, height);
+    const rowWeights = new Float64Array(height);
+    const columnWeights = new Float64Array(width);
+    let totalWeight = 0;
 
     for (let y = 0; y < height; y += 1) {
       for (let x = 0; x < width; x += 1) {
         const index = ((y * width) + x) * 4;
         const alpha = pixels[index + 3];
-        if (alpha < 20) continue;
+        if (alpha < 8) continue;
 
-        const colorDistance = Math.max(
-          Math.abs(pixels[index] - background.r),
-          Math.abs(pixels[index + 1] - background.g),
-          Math.abs(pixels[index + 2] - background.b)
-        );
-        const isVisible = transparentBackground
-          ? alpha > 32
-          : colorDistance > 18 || Math.abs(alpha - background.a) > 22;
-
-        if (isVisible) {
-          rowCounts[y] += 1;
-          columnCounts[x] += 1;
+        let weight;
+        if (background.transparent) {
+          weight = alpha;
+        } else {
+          const colorDistance = Math.max(
+            Math.abs(pixels[index] - background.r),
+            Math.abs(pixels[index + 1] - background.g),
+            Math.abs(pixels[index + 2] - background.b)
+          );
+          const alphaDistance = Math.abs(alpha - background.a);
+          weight = Math.max(0, colorDistance - 10, alphaDistance - 10) * (alpha / 255);
         }
+
+        if (weight <= 0) continue;
+        rowWeights[y] += weight;
+        columnWeights[x] += weight;
+        totalWeight += weight;
       }
     }
 
-    const minimumRowPixels = Math.max(2, Math.floor(width * 0.004));
-    const minimumColumnPixels = Math.max(2, Math.floor(height * 0.004));
-    let top = 0;
-    let bottom = height - 1;
-    let left = 0;
-    let right = width - 1;
+    if (totalWeight < Math.max(300, width * height * 0.02)) return src;
 
-    while (top <= bottom && rowCounts[top] < minimumRowPixels) top += 1;
-    while (bottom >= top && rowCounts[bottom] < minimumRowPixels) bottom -= 1;
-    while (left <= right && columnCounts[left] < minimumColumnPixels) left += 1;
-    while (right >= left && columnCounts[right] < minimumColumnPixels) right -= 1;
+    const xBounds = weightedProjectionBounds(columnWeights, BATTLE_LOGO_EDGE_TRIM_RATIO);
+    const yBounds = weightedProjectionBounds(rowWeights, BATTLE_LOGO_EDGE_TRIM_RATIO);
+    if (!xBounds || !yBounds) return src;
 
-    if (left > right || top > bottom) return { scale: 1, translateX: 0, translateY: 0 };
+    const contentWidth = xBounds.end - xBounds.start + 1;
+    const contentHeight = yBounds.end - yBounds.start + 1;
+    const visibleCoverage = Math.max(contentWidth / width, contentHeight / height);
+    if (visibleCoverage >= BATTLE_LOGO_CROP_THRESHOLD) return src;
 
-    const contentWidth = right - left + 1;
-    const contentHeight = bottom - top + 1;
-    const imageLongestSide = Math.max(width, height);
-    const contentLongestSide = Math.max(contentWidth, contentHeight);
-    const visibleCoverage = contentLongestSide / imageLongestSide;
+    const paddingX = Math.max(2, Math.round(contentWidth * BATTLE_LOGO_CROP_PADDING_RATIO));
+    const paddingY = Math.max(2, Math.round(contentHeight * BATTLE_LOGO_CROP_PADDING_RATIO));
+    const left = Math.max(0, xBounds.start - paddingX);
+    const top = Math.max(0, yBounds.start - paddingY);
+    const right = Math.min(width - 1, xBounds.end + paddingX);
+    const bottom = Math.min(height - 1, yBounds.end + paddingY);
 
-    // Leave normally cropped logos alone. Only zoom files with meaningful built-in padding.
-    if (visibleCoverage >= 0.82) return { scale: 1, translateX: 0, translateY: 0 };
+    const sourceLeft = Math.max(0, Math.floor((left / width) * naturalWidth));
+    const sourceTop = Math.max(0, Math.floor((top / height) * naturalHeight));
+    const sourceRight = Math.min(naturalWidth, Math.ceil(((right + 1) / width) * naturalWidth));
+    const sourceBottom = Math.min(naturalHeight, Math.ceil(((bottom + 1) / height) * naturalHeight));
+    const sourceWidth = sourceRight - sourceLeft;
+    const sourceHeight = sourceBottom - sourceTop;
+    if (sourceWidth < 2 || sourceHeight < 2) return src;
 
-    // Battle images normally use at most 86% of the frame. Scale the visible artwork
-    // to roughly 94% while keeping a little breathing room and preventing wild zooms.
-    const scale = Math.min(3.5, (0.94 / 0.86) * (imageLongestSide / contentLongestSide));
-    const contentCenterX = (left + right + 1) / (2 * width);
-    const contentCenterY = (top + bottom + 1) / (2 * height);
-    const translateX = (0.5 - contentCenterX) * 100 * scale;
-    const translateY = (0.5 - contentCenterY) * 100 * scale;
+    const cropCanvas = document.createElement('canvas');
+    cropCanvas.width = sourceWidth;
+    cropCanvas.height = sourceHeight;
+    const cropContext = cropCanvas.getContext('2d');
+    if (!cropContext) return src;
 
-    return { scale, translateX, translateY };
+    cropContext.clearRect(0, 0, sourceWidth, sourceHeight);
+    cropContext.drawImage(
+      image,
+      sourceLeft,
+      sourceTop,
+      sourceWidth,
+      sourceHeight,
+      0,
+      0,
+      sourceWidth,
+      sourceHeight
+    );
+
+    const croppedSource = cropCanvas.toDataURL('image/png');
+    return croppedSource && croppedSource !== 'data:,' ? croppedSource : src;
   }
 
-  function battleLogoFit(logo) {
+  function battleLogoDisplaySource(logo) {
     const cached = battleLogoFitCache.get(logo.id);
     if (cached && cached.originalSrc === logo.imageDataUrl) return cached.promise;
 
     const entry = {
       originalSrc: logo.imageDataUrl,
-      promise: measureBattleLogoFit(logo.imageDataUrl)
-        .catch(() => ({ scale: 1, translateX: 0, translateY: 0 })),
+      promise: createBattleLogoDisplaySource(logo.imageDataUrl)
+        .catch(() => logo.imageDataUrl),
     };
     battleLogoFitCache.set(logo.id, entry);
 
@@ -795,14 +861,16 @@
     const logoId = String(logo.id);
     img.dataset.battleLogoId = logoId;
     img.src = logo.imageDataUrl;
+    img.style.removeProperty('transform');
 
-    const fit = await battleLogoFit(logo);
+    const displaySource = await battleLogoDisplaySource(logo);
     if (!img.isConnected || img.dataset.battleLogoId !== logoId) return;
 
-    if (fit.scale > 1.01) {
-      img.style.transform = `translate(${fit.translateX}%, ${fit.translateY}%) scale(${fit.scale})`;
+    if (displaySource !== logo.imageDataUrl) {
+      img.dataset.battleAutoFitted = 'true';
+      img.src = displaySource;
     } else {
-      img.style.removeProperty('transform');
+      delete img.dataset.battleAutoFitted;
     }
   }
 
