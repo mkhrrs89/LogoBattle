@@ -5,7 +5,7 @@
   const DB_VERSION = 1;
   const MAX_SIZE = 800;
   const BACKUP_VERSION = 6;
-  const LOGO_YEAR_PIVOT = 46;
+  const LOGO_YEAR_PIVOT = 30;
   const POST_VOTE_INPUT_LOCK_MS = 450;
   const DEFAULT_TIERS = [
     { name: 'SS', min: 100, max: 100 },
