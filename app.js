@@ -670,6 +670,160 @@
     els.battleReady.classList.toggle('hidden', count === 0);
   }
 
+  const battleLogoCropCache = new Map();
+  const BATTLE_LOGO_CROP_CACHE_LIMIT = 24;
+
+  function median(values) {
+    const sorted = [...values].sort((a, b) => a - b);
+    return sorted[Math.floor(sorted.length / 2)];
+  }
+
+  function loadLogoImage(src) {
+    return new Promise((resolve, reject) => {
+      const image = new Image();
+      image.onload = () => resolve(image);
+      image.onerror = reject;
+      image.src = src;
+    });
+  }
+
+  function canvasToBlob(canvas) {
+    return new Promise(resolve => canvas.toBlob(resolve, 'image/png'));
+  }
+
+  async function cropLogoToVisibleContent(src) {
+    const image = await loadLogoImage(src);
+    const width = image.naturalWidth;
+    const height = image.naturalHeight;
+    if (!width || !height) return src;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const context = canvas.getContext('2d', { willReadFrequently: true });
+    context.drawImage(image, 0, 0);
+    const pixels = context.getImageData(0, 0, width, height).data;
+
+    const cornerIndexes = [
+      0,
+      (width - 1) * 4,
+      (height - 1) * width * 4,
+      ((height * width) - 1) * 4,
+    ];
+    const background = {
+      r: median(cornerIndexes.map(index => pixels[index])),
+      g: median(cornerIndexes.map(index => pixels[index + 1])),
+      b: median(cornerIndexes.map(index => pixels[index + 2])),
+      a: median(cornerIndexes.map(index => pixels[index + 3])),
+    };
+
+    const rowCounts = new Uint32Array(height);
+    const columnCounts = new Uint32Array(width);
+    const transparentBackground = background.a < 32;
+
+    for (let y = 0; y < height; y += 1) {
+      for (let x = 0; x < width; x += 1) {
+        const index = ((y * width) + x) * 4;
+        const alpha = pixels[index + 3];
+        if (alpha < 20) continue;
+
+        const isVisible = transparentBackground
+          ? alpha > 32
+          : Math.max(
+            Math.abs(pixels[index] - background.r),
+            Math.abs(pixels[index + 1] - background.g),
+            Math.abs(pixels[index + 2] - background.b),
+            Math.abs(alpha - background.a)
+          ) > 22;
+
+        if (isVisible) {
+          rowCounts[y] += 1;
+          columnCounts[x] += 1;
+        }
+      }
+    }
+
+    const minimumRowPixels = Math.max(2, Math.floor(width * 0.0025));
+    const minimumColumnPixels = Math.max(2, Math.floor(height * 0.0025));
+    let top = 0;
+    let bottom = height - 1;
+    let left = 0;
+    let right = width - 1;
+
+    while (top <= bottom && rowCounts[top] < minimumRowPixels) top += 1;
+    while (bottom >= top && rowCounts[bottom] < minimumRowPixels) bottom -= 1;
+    while (left <= right && columnCounts[left] < minimumColumnPixels) left += 1;
+    while (right >= left && columnCounts[right] < minimumColumnPixels) right -= 1;
+
+    if (left > right || top > bottom) return src;
+
+    const contentWidth = right - left + 1;
+    const contentHeight = bottom - top + 1;
+    if (contentWidth >= width * 0.9 && contentHeight >= height * 0.9) return src;
+
+    const padding = Math.ceil(Math.max(contentWidth, contentHeight) * 0.035);
+    const cropLeft = Math.max(0, left - padding);
+    const cropTop = Math.max(0, top - padding);
+    const cropRight = Math.min(width - 1, right + padding);
+    const cropBottom = Math.min(height - 1, bottom + padding);
+    const cropWidth = cropRight - cropLeft + 1;
+    const cropHeight = cropBottom - cropTop + 1;
+
+    const croppedCanvas = document.createElement('canvas');
+    croppedCanvas.width = cropWidth;
+    croppedCanvas.height = cropHeight;
+    croppedCanvas.getContext('2d').drawImage(
+      canvas,
+      cropLeft,
+      cropTop,
+      cropWidth,
+      cropHeight,
+      0,
+      0,
+      cropWidth,
+      cropHeight
+    );
+
+    const blob = await canvasToBlob(croppedCanvas);
+    return blob ? URL.createObjectURL(blob) : src;
+  }
+
+  function battleLogoSource(logo) {
+    const cached = battleLogoCropCache.get(logo.id);
+    if (cached && cached.originalSrc === logo.imageDataUrl) return cached.promise;
+
+    if (cached?.objectUrl) URL.revokeObjectURL(cached.objectUrl);
+
+    const entry = {
+      originalSrc: logo.imageDataUrl,
+      objectUrl: null,
+      promise: null,
+    };
+    entry.promise = cropLogoToVisibleContent(logo.imageDataUrl)
+      .then(src => {
+        if (src.startsWith('blob:')) entry.objectUrl = src;
+        return src;
+      })
+      .catch(() => logo.imageDataUrl);
+    battleLogoCropCache.set(logo.id, entry);
+
+    while (battleLogoCropCache.size > BATTLE_LOGO_CROP_CACHE_LIMIT) {
+      const oldestKey = battleLogoCropCache.keys().next().value;
+      const oldest = battleLogoCropCache.get(oldestKey);
+      if (oldest?.objectUrl) URL.revokeObjectURL(oldest.objectUrl);
+      battleLogoCropCache.delete(oldestKey);
+    }
+
+    return entry.promise;
+  }
+
+  async function setBattleLogoImage(img, logo) {
+    img.dataset.battleLogoId = logo.id;
+    const src = await battleLogoSource(logo);
+    if (!img.isConnected || img.dataset.battleLogoId !== logo.id) return;
+    img.src = src;
+  }
+
   function renderBattle() {
     renderBattleShell();
     els.battleCards.innerHTML = '';
@@ -696,8 +850,8 @@
 
       applyLogoFrameShape(frame, logo);
       img.addEventListener('load', () => applyLoadedImageFrameShape(img), { once: true });
-      img.src = logo.imageDataUrl;
       img.alt = logo.name;
+      setBattleLogoImage(img, logo);
       title.textContent = logo.name;
       franchise.textContent = logo.franchise;
       record.textContent = recordText(logo);
