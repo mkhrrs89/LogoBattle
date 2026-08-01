@@ -89,6 +89,7 @@
     globalStats: $('#globalStats'),
     manageSearch: $('#manageSearch'),
     manageFranchise: $('#manageFranchise'),
+    manageMissingYearsToggle: $('#manageMissingYearsToggle'),
     logoGrid: $('#logoGrid'),
     showRetiredBtn: $('#showRetiredBtn'),
     retiredDialog: $('#retiredDialog'),
@@ -1736,11 +1737,14 @@
   function renderManageGrid() {
     const query = els.manageSearch.value.trim().toLowerCase();
     const franchise = els.manageFranchise.value;
+    const missingYearsOnly = els.manageMissingYearsToggle.checked;
     const logos = sortRanked(activeLogos()).filter(l => {
       const groupedFranchise = groupedFranchiseName(l.franchise);
       const matchesSearch = !query || `${l.name} ${l.franchise} ${groupedFranchise}`.toLowerCase().includes(query);
       const matchesFranchise = !franchise || groupedFranchise === franchise;
-      return matchesSearch && matchesFranchise;
+      const hasNoYears = !normalizeLogoYear(l.startYear) && !normalizeLogoYear(l.endYear);
+      const matchesMissingYears = !missingYearsOnly || hasNoYears;
+      return matchesSearch && matchesFranchise && matchesMissingYears;
     });
 
     els.logoGrid.innerHTML = '';
@@ -1854,6 +1858,7 @@
     await saveLogo(updatedLogo);
     Object.assign(logo, updatedLogo);
     renderLogosByYear();
+    if (els.manageMissingYearsToggle.checked) renderManageGrid();
     showStatus('Logo years saved');
   }
 
@@ -2151,6 +2156,7 @@
     els.logoOnlyYearToggle?.addEventListener('change', updateLogoOnlyYearView);
     els.manageSearch.addEventListener('input', renderManageGrid);
     els.manageFranchise.addEventListener('change', renderManageGrid);
+    els.manageMissingYearsToggle.addEventListener('change', renderManageGrid);
 
     els.editForm.addEventListener('submit', saveEdit);
     els.cancelEditBtn.addEventListener('click', () => els.editDialog.close());
