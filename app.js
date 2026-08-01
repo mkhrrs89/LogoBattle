@@ -1742,8 +1742,8 @@
       const groupedFranchise = groupedFranchiseName(l.franchise);
       const matchesSearch = !query || `${l.name} ${l.franchise} ${groupedFranchise}`.toLowerCase().includes(query);
       const matchesFranchise = !franchise || groupedFranchise === franchise;
-      const hasNoYears = !normalizeLogoYear(l.startYear) && !normalizeLogoYear(l.endYear);
-      const matchesMissingYears = !missingYearsOnly || hasNoYears;
+      const hasMissingYear = !normalizeLogoYear(l.startYear) || !normalizeLogoYear(l.endYear);
+      const matchesMissingYears = !missingYearsOnly || hasMissingYear;
       return matchesSearch && matchesFranchise && matchesMissingYears;
     });
 
