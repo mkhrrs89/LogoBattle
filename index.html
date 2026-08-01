@@ -169,6 +169,10 @@
         <div class="card controls-row">
           <input id="manageSearch" class="input" type="search" placeholder="Search active logos..." />
           <select id="manageFranchise" class="input"></select>
+          <label class="logos-by-year-view-toggle" title="Show only logos with blank Start and End year fields">
+            <input id="manageMissingYearsToggle" type="checkbox" />
+            <span>Missing years only</span>
+          </label>
           <button id="showRetiredBtn" class="ghost-btn">Retired Archive</button>
         </div>
 
@@ -297,6 +301,6 @@
     </button>
   </template>
 
-  <script src="app.js?v=20260730-logo-year-pivot-30"></script>
+  <script src="app.js?v=20260801-manage-missing-years-filter"></script>
 </body>
 </html>
