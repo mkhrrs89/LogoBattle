@@ -676,6 +676,6 @@ td { color: var(--text); }
 }
 
 @media (max-width: 440px) {
-  .logos-by-year-grid.logo-only { grid-template-columns: 1fr 1fr; padding: 10px; }
+  .logos-by-year-grid.logo-only { grid-template-columns: repeat(3, minmax(0, 1fr)); padding: 10px; }
   .team-logo-grid.logo-only { grid-template-columns: 1fr 1fr; padding: 10px; }
 }
