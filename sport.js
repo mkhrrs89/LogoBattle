@@ -187,15 +187,16 @@
   clipboardUploader.src = 'clipboard-upload.js?v=20260831-paste-images';
   document.head.appendChild(clipboardUploader);
 
-  const imageFit = document.createElement('script');
-  imageFit.src = 'image-fit.js?v=20260831-scale-small-logos';
-  document.head.appendChild(imageFit);
-
   if (document.readyState === 'loading') {
     document.write('<script src="year-century-override.js?v=20260831-force-19xx"><\/script>');
+    document.write('<script src="matchup-sport-pool.js?v=20260831-sport-pool"><\/script>');
   } else {
     const yearCenturyOverride = document.createElement('script');
     yearCenturyOverride.src = 'year-century-override.js?v=20260831-force-19xx';
     document.head.appendChild(yearCenturyOverride);
+
+    const matchupSportPool = document.createElement('script');
+    matchupSportPool.src = 'matchup-sport-pool.js?v=20260831-sport-pool';
+    document.head.appendChild(matchupSportPool);
   }
 })();
