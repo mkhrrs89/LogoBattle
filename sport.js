@@ -187,7 +187,11 @@
   clipboardUploader.src = 'clipboard-upload.js?v=20260831-paste-images';
   document.head.appendChild(clipboardUploader);
 
-  const yearCenturyOverride = document.createElement('script');
-  yearCenturyOverride.src = 'year-century-override.js?v=20260831-force-19xx';
-  document.head.appendChild(yearCenturyOverride);
+  if (document.readyState === 'loading') {
+    document.write('<script src="year-century-override.js?v=20260831-force-19xx"><\\/script>');
+  } else {
+    const yearCenturyOverride = document.createElement('script');
+    yearCenturyOverride.src = 'year-century-override.js?v=20260831-force-19xx';
+    document.head.appendChild(yearCenturyOverride);
+  }
 })();
