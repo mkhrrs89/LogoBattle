@@ -1,0 +1,49 @@
+/* Masonry-style layout for Logos by Year > Logo-only view.
+   Items flow independently down each column so a tall logo does not create
+   empty row space beneath shorter neighbors. Detailed view remains unchanged. */
+.logos-by-year-grid.logo-only {
+  display: block;
+  column-count: 5;
+  column-gap: 0;
+  padding: 16px;
+}
+
+.logos-by-year-grid.logo-only .logo-only-year-item {
+  display: inline-block;
+  width: 100%;
+  break-inside: avoid;
+  -webkit-column-break-inside: avoid;
+  page-break-inside: avoid;
+  vertical-align: top;
+}
+
+/* In masonry mode the item's height should come from the logo itself, not a
+   forced square grid cell. This is what allows the next logo in that same
+   column to sit immediately underneath it. */
+.logos-by-year-grid.logo-only .logo-only-year-item .logo-frame {
+  aspect-ratio: auto !important;
+  height: auto !important;
+  min-height: 0;
+  display: block;
+}
+
+.logos-by-year-grid.logo-only .logo-only-year-item .logo-frame img {
+  display: block;
+  width: 100% !important;
+  height: auto !important;
+  max-width: 100% !important;
+  max-height: none !important;
+  object-fit: contain;
+}
+
+@media (max-width: 1000px) {
+  .logos-by-year-grid.logo-only { column-count: 4; }
+}
+
+@media (max-width: 760px) {
+  .logos-by-year-grid.logo-only { column-count: 3; padding: 10px; }
+}
+
+@media (max-width: 340px) {
+  .logos-by-year-grid.logo-only { column-count: 2; }
+}
