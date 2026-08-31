@@ -188,7 +188,7 @@
   document.head.appendChild(clipboardUploader);
 
   if (document.readyState === 'loading') {
-    document.write('<script src="year-century-override.js?v=20260831-force-19xx"><\\/script>');
+    document.write('<script src="year-century-override.js?v=20260831-force-19xx"><\/script>');
   } else {
     const yearCenturyOverride = document.createElement('script');
     yearCenturyOverride.src = 'year-century-override.js?v=20260831-force-19xx';
