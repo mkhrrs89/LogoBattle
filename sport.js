@@ -173,6 +173,11 @@
 
   ensureStyles();
 
+  const yearMasonryStyles = document.createElement('link');
+  yearMasonryStyles.rel = 'stylesheet';
+  yearMasonryStyles.href = 'logo-year-masonry.css?v=20260831-column-flow';
+  document.head.appendChild(yearMasonryStyles);
+
   document.addEventListener('DOMContentLoaded', () => {
     scheduleSportFields();
 
