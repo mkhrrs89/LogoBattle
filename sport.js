@@ -182,4 +182,8 @@
     if (logoGrid) observer.observe(logoGrid, { childList: true, subtree: true });
     if (retiredGrid) observer.observe(retiredGrid, { childList: true, subtree: true });
   });
+
+  const clipboardUploader = document.createElement('script');
+  clipboardUploader.src = 'clipboard-upload.js?v=20260831-paste-images';
+  document.head.appendChild(clipboardUploader);
 })();
