@@ -49,3 +49,11 @@
 @media (max-width: 340px) {
   .logos-by-year-grid.logo-only { column-count: 2; }
 }
+
+/* Optional dark canvas, limited to the year gallery's logo-only mode. */
+.logos-by-year-grid.logo-only.black-background,
+.logos-by-year-grid.logo-only.black-background .logo-only-year-item,
+.logos-by-year-grid.logo-only.black-background .logo-only-year-item .logo-frame {
+  background: #000 !important;
+}
+.year-background-control[hidden] { display: none !important; }
