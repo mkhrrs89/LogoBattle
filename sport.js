@@ -204,4 +204,29 @@
     matchupSportPool.src = 'matchup-sport-pool.js?v=20260831-sport-pool';
     document.head.appendChild(matchupSportPool);
   }
+  // Logo-only year gallery background selector; defaults to white.
+  document.addEventListener('DOMContentLoaded', () => {
+    const controls = document.querySelector('.logos-by-year-controls');
+    const grid = document.getElementById('logosByYearGrid');
+    const toggle = document.getElementById('logoOnlyYearToggle');
+    if (!controls || !grid || !toggle || document.getElementById('yearBackgroundToggle')) return;
+    const label = document.createElement('label');
+    label.className = 'logos-by-year-view-toggle year-background-control';
+    label.innerHTML = '<span>Black background</span><input id="yearBackgroundToggle" type="checkbox" aria-label="Black background for logo-only view">';
+    controls.insertBefore(label, controls.querySelector('.logos-by-year-picker'));
+    const input = label.querySelector('input');
+    try { input.checked = localStorage.getItem('logoBattleYearBlackBackground') === 'true'; } catch (_) {}
+    const sync = () => {
+      label.hidden = !toggle.checked;
+      grid.classList.toggle('black-background', toggle.checked && input.checked);
+    };
+    input.addEventListener('change', () => {
+      try { localStorage.setItem('logoBattleYearBlackBackground', String(input.checked)); } catch (_) {}
+      sync();
+    });
+    toggle.addEventListener('change', sync);
+    new MutationObserver(sync).observe(grid, { attributes: true, attributeFilter: ['class'] });
+    sync();
+  });
+
 })();
